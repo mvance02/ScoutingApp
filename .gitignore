@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+server/node_modules/
+
+# Environment files (contain secrets)
+.env
+server/.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Uploaded files
+server/uploads/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Claude Code
+.claude/

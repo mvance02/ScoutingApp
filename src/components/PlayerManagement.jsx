@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { Flag, Plus, Trash2, Download, Search, BarChart3, Pencil, Check, X, Users, ChevronLeft, ChevronRight, Camera } from 'lucide-react'
+import { Flag, Plus, Trash2, Download, Search, BarChart3, Pencil, Check, X, Users, ChevronLeft, ChevronRight, Camera, UserPlus, SearchX } from 'lucide-react'
 import {
   loadData,
   saveData,
@@ -14,6 +14,7 @@ import {
 } from '../utils/storage'
 import { assignmentsApi } from '../utils/api'
 import byuLogo from '../assets/byu-logo.png'
+import EmptyState from './EmptyState'
 
 const POSITIONS = ['All', 'QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'DB', 'K', 'P', 'ATH']
 
@@ -746,11 +747,9 @@ function PlayerManagement() {
           </div>
         )}
         {filteredPlayers.length === 0 ? (
-          <p className="empty-state">
-            {players.length === 0
-              ? 'No players yet. Add one to start your watchlist.'
-              : 'No players match your filters.'}
-          </p>
+          players.length === 0
+            ? <EmptyState icon={UserPlus} title="No players yet" subtitle="Add one to start your watchlist." />
+            : <EmptyState icon={SearchX} title="No players match your filters" subtitle="Try adjusting your search or filters." />
         ) : (
           <>
             <ul className="list">

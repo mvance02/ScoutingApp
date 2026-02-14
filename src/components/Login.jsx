@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { authApi } from '../utils/api'
+import byuLogo from '../assets/byu-logo.png'
 
 function Login({ onAuthSuccess }) {
   const [mode, setMode] = useState('login')
@@ -57,6 +58,10 @@ function Login({ onAuthSuccess }) {
   return (
     <div className="auth-page">
       <div className="auth-card">
+        <div className="auth-brand">
+          <img className="auth-logo" src={byuLogo} alt="BYU Logo" />
+          <h1>BYU Scouting</h1>
+        </div>
         <h2>{mode === 'login' ? 'Scout Login' : 'Create Admin Account'}</h2>
         <p className="helper-text">
           {mode === 'login'

@@ -9,7 +9,7 @@ import StatTrendChart from './StatTrendChart'
 import PlayerComments from './PlayerComments'
 import PlayerVisits from './PlayerVisits'
 import CompositeRatingTrend from './CompositeRatingTrend'
-import byuLogo from '../assets/byu-logo.svg'
+import byuLogo from '../assets/byu-logo.png'
 
 function PlayerStats() {
   const { playerId } = useParams()

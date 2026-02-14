@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import pool from '../db.js'
 import { validate, createStatSchema, updateStatSchema } from '../middleware/validate.js'
+import { logActivity } from '../utils/activityLogger.js'
 
 const router = Router()
 
@@ -128,7 +129,31 @@ router.post('/', validate(createStatSchema), async (req, res, next) => {
       [result.rows[0].id]
     )
 
-    res.status(201).json(statWithPlayer.rows[0])
+    const stat = statWithPlayer.rows[0]
+    const io = req.app.get('io')
+
+    // Broadcast via WebSocket
+    if (io) {
+      io.to(`game:${game_id}`).emit('stat:created', {
+        stat,
+        user: { id: req.user.id, name: req.user.name || req.user.email },
+        timestamp: new Date().toISOString(),
+      })
+    }
+
+    // Log activity
+    await logActivity({
+      userId: req.user.id,
+      userName: req.user.name || req.user.email,
+      actionType: 'stat_created',
+      entityType: 'stat',
+      entityId: stat.id,
+      entityName: `${stat.player_name} - ${stat.stat_type} (${stat.value})`,
+      details: { game_id, player_id, stat_type, value },
+      io,
+    })
+
+    res.status(201).json(stat)
   } catch (err) {
     next(err)
   }
@@ -181,7 +206,31 @@ router.put('/:id', validate(updateStatSchema), async (req, res, next) => {
       [id]
     )
 
-    res.json(statWithPlayer.rows[0])
+    const stat = statWithPlayer.rows[0]
+    const io = req.app.get('io')
+
+    // Broadcast via WebSocket
+    if (io) {
+      io.to(`game:${stat.game_id}`).emit('stat:updated', {
+        stat,
+        user: { id: req.user.id, name: req.user.name || req.user.email },
+        timestamp: new Date().toISOString(),
+      })
+    }
+
+    // Log activity
+    await logActivity({
+      userId: req.user.id,
+      userName: req.user.name || req.user.email,
+      actionType: 'stat_updated',
+      entityType: 'stat',
+      entityId: stat.id,
+      entityName: `${stat.player_name} - ${stat.stat_type}`,
+      details: { game_id: stat.game_id, player_id: stat.player_id },
+      io,
+    })
+
+    res.json(stat)
   } catch (err) {
     next(err)
   }
@@ -205,7 +254,34 @@ router.delete('/:id', async (req, res, next) => {
     }
 
     const result = await pool.query('DELETE FROM stats WHERE id = $1 RETURNING *', [id])
-    res.json({ message: 'Stat deleted', stat: result.rows[0] })
+    const deletedStat = result.rows[0]
+    const io = req.app.get('io')
+
+    // Broadcast via WebSocket
+    if (io && deletedStat) {
+      io.to(`game:${deletedStat.game_id}`).emit('stat:deleted', {
+        statId: id,
+        game_id: deletedStat.game_id,
+        user: { id: req.user.id, name: req.user.name || req.user.email },
+        timestamp: new Date().toISOString(),
+      })
+    }
+
+    // Log activity
+    if (deletedStat) {
+      await logActivity({
+        userId: req.user.id,
+        userName: req.user.name || req.user.email,
+        actionType: 'stat_deleted',
+        entityType: 'stat',
+        entityId: id,
+        entityName: `Stat #${id}`,
+        details: { game_id: deletedStat.game_id },
+        io,
+      })
+    }
+
+    res.json({ message: 'Stat deleted', stat: deletedStat })
   } catch (err) {
     next(err)
   }

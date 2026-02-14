@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import pool from '../db.js'
 import { logAudit, getClientIp } from '../middleware/audit.js'
+import { parseMentions, createMentionNotifications } from '../utils/mentions.js'
+import { logActivity } from '../utils/activityLogger.js'
 
 const router = Router()
 
@@ -30,12 +32,34 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'player_id and comment are required' })
     }
 
+    const commentText = comment.trim()
+    
+    // Parse mentions
+    const mentions = parseMentions(commentText)
+    const mentionedUserIds = []
+    
+    if (mentions.length > 0) {
+      const users = await pool.query(
+        `SELECT id FROM users 
+         WHERE email = ANY($1) OR name = ANY($1) OR LOWER(email) = ANY($2) OR LOWER(name) = ANY($2)`,
+        [mentions, mentions.map(m => m.toLowerCase())]
+      )
+      mentionedUserIds.push(...users.rows.map(u => u.id))
+    }
+
     const result = await pool.query(
-      `INSERT INTO player_comments (player_id, user_id, comment)
-       VALUES ($1, $2, $3)
+      `INSERT INTO player_comments (player_id, user_id, comment, mentions)
+       VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [player_id, req.user.id, comment.trim()]
+      [player_id, req.user.id, commentText, mentionedUserIds.length > 0 ? mentionedUserIds : null]
     )
+
+    const newComment = result.rows[0]
+
+    // Create mention notifications
+    if (mentions.length > 0) {
+      await createMentionNotifications(newComment.id, mentions, req.user.id, player_id)
+    }
 
     // Fetch with author info
     const withAuthor = await pool.query(
@@ -43,20 +67,49 @@ router.post('/', async (req, res, next) => {
        FROM player_comments pc
        LEFT JOIN users u ON u.id = pc.user_id
        WHERE pc.id = $1`,
-      [result.rows[0].id]
+      [newComment.id]
     )
+
+    const commentWithAuthor = withAuthor.rows[0]
+
+    // Get player name for activity log
+    const playerResult = await pool.query('SELECT name FROM players WHERE id = $1', [player_id])
+    const playerName = playerResult.rows[0]?.name || `Player #${player_id}`
+
+    const io = req.app.get('io')
+
+    // Broadcast via WebSocket
+    if (io) {
+      io.to(`player:${player_id}`).emit('comment:created', {
+        comment: commentWithAuthor,
+        user: { id: req.user.id, name: req.user.name || req.user.email },
+        timestamp: new Date().toISOString(),
+      })
+    }
+
+    // Log activity
+    await logActivity({
+      userId: req.user.id,
+      userName: req.user.name || req.user.email,
+      actionType: 'comment_added',
+      entityType: 'comment',
+      entityId: newComment.id,
+      entityName: `Comment on ${playerName}`,
+      details: { player_id, mentions: mentions.length },
+      io,
+    })
 
     logAudit({
       userId: req.user.id,
       userEmail: req.user.email,
       action: 'CREATE',
       tableName: 'player_comments',
-      recordId: result.rows[0].id,
-      newValues: result.rows[0],
+      recordId: newComment.id,
+      newValues: newComment,
       ipAddress: getClientIp(req),
     })
 
-    res.status(201).json(withAuthor.rows[0])
+    res.status(201).json(commentWithAuthor)
   } catch (err) {
     next(err)
   }

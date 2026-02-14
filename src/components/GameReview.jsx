@@ -15,8 +15,11 @@ import {
   deleteStat,
   setGamePlayers,
 } from '../utils/storage'
-import { gradesApi, notesApi, authApi } from '../utils/api'
+import { gradesApi, notesApi, authApi, statsApi } from '../utils/api'
 import { useUndoRedo } from '../hooks/useUndoRedo'
+import { useWebSocket } from '../hooks/useWebSocket'
+import EmptyState from './EmptyState'
+import Chat from './Chat'
 
 const STAT_TYPES = [
   'Rush',
@@ -159,6 +162,23 @@ function GameReview() {
   const [isSavingAll, setIsSavingAll] = useState(false)
 
   const game = games.find((item) => String(item.id) === String(gameId))
+
+  // Real-time updates via WebSocket
+  useWebSocket({
+    gameId,
+    onStatUpdate: async (data) => {
+      if (data.type === 'created') {
+        // Add new stat
+        setGameStats((prev) => [...prev, data.stat])
+      } else if (data.type === 'updated') {
+        // Update existing stat
+        setGameStats((prev) => prev.map((s) => (s.id === data.stat.id ? data.stat : s)))
+      } else if (data.type === 'deleted') {
+        // Remove deleted stat
+        setGameStats((prev) => prev.filter((s) => s.id !== data.statId))
+      }
+    },
+  })
 
   // Load data on mount
   useEffect(() => {
@@ -978,7 +998,7 @@ function GameReview() {
   if (!gameId) {
     return (
       <div className="page">
-        <p className="empty-state">Select a game review from the dashboard to get started.</p>
+        <EmptyState icon={ClipboardList} title="No game selected" subtitle="Select a game review from the dashboard to get started." />
       </div>
     )
   }
@@ -1671,6 +1691,15 @@ function GameReview() {
             ))}
           </ul>
         )}
+      </section>
+
+      {/* Game Chat */}
+      <section className="panel" style={{ marginTop: '24px' }}>
+        <Chat 
+          roomType="game" 
+          entityId={gameId} 
+          title={`Game Chat: ${game?.opponent || 'Game'}`}
+        />
       </section>
 
       <section className="panel save-finish-panel">

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { authApi } from '../utils/api'
 
 function UserManagement() {
@@ -6,6 +7,8 @@ function UserManagement() {
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'scout' })
   const [status, setStatus] = useState({ loading: true, error: '' })
   const [saving, setSaving] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [usersPerPage] = useState(20)
 
   useEffect(() => {
     authApi.users()
@@ -38,6 +41,13 @@ function UserManagement() {
       setSaving(false)
     }
   }
+
+  // Pagination
+  const totalPages = Math.ceil(users.length / usersPerPage)
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * usersPerPage
+    return users.slice(start, start + usersPerPage)
+  }, [users, currentPage, usersPerPage])
 
   return (
     <div className="page">
@@ -84,16 +94,41 @@ function UserManagement() {
         ) : users.length === 0 ? (
           <p className="empty-state">No users found.</p>
         ) : (
-          <ul className="list">
-            {users.map((user) => (
-              <li key={user.id} className="list-item">
-                <div>
-                  <strong>{user.name || user.email}</strong>
-                  <span>{user.email} · {user.role}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="list">
+              {paginatedUsers.map((user) => (
+                <li key={user.id} className="list-item">
+                  <div>
+                    <strong>{user.name || user.email}</strong>
+                    <span>{user.email} · {user.role}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  className="btn-ghost"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft size={16} />
+                  Previous
+                </button>
+                <span className="pagination-info">
+                  Page {currentPage} of {totalPages} ({users.length} total)
+                </span>
+                <button
+                  className="btn-ghost"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+          </>
         )}
       </section>
     </div>

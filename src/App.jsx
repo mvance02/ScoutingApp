@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom'
-import { Home, Users, Plus, Moon, Sun, HelpCircle, FileText, UserCheck, Bell, ClipboardList } from 'lucide-react'
+import { Home, Users, Plus, Moon, Sun, HelpCircle, FileText, UserCheck, Bell, ClipboardList, BarChart3 } from 'lucide-react'
 import Dashboard from './components/Dashboard'
 import GameReview from './components/GameReview'
 import PlayerManagement from './components/PlayerManagement'
@@ -16,6 +16,7 @@ import AuditLog from './components/AuditLog'
 import ScoutAssignments from './components/ScoutAssignments'
 import RecruitsReport from './components/RecruitsReport'
 import Notifications from './components/Notifications'
+import Analytics from './components/Analytics'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -106,6 +107,7 @@ function App() {
             <Route path="/players" element={<PlayerManagement />} />
             <Route path="/player/:playerId/stats" element={<PlayerStats />} />
             <Route path="/recruits-report" element={<RecruitsReport />} />
+            <Route path="/analytics" element={<Analytics />} />
             {user?.role === 'admin' ? (
               <>
                 <Route path="/admin/users" element={<UserManagement />} />
@@ -166,6 +168,14 @@ function NavBar({ user, darkMode, onToggleDarkMode, onLogout, onShowShortcuts, o
         >
           <FileText size={20} />
           Recruits Report
+        </Link>
+        <Link
+          to="/analytics"
+          className={activePath === '/analytics' ? 'active' : ''}
+          onClick={() => setActivePath('/analytics')}
+        >
+          <BarChart3 size={20} />
+          Analytics
         </Link>
         {user?.role === 'admin' ? (
           <>

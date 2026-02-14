@@ -1,4 +1,5 @@
 import express from 'express'
+import { createServer } from 'http'
 import cors from 'cors'
 import helmet from 'helmet'
 import dotenv from 'dotenv'
@@ -25,13 +26,21 @@ import recruitNotesRouter from './routes/recruitNotes.js'
 import notificationsRouter from './routes/notifications.js'
 import playerCommentsRouter from './routes/playerComments.js'
 import visitsRouter from './routes/visits.js'
+import activityRouter from './routes/activity.js'
+import chatRouter from './routes/chat.js'
 import { requireAuth } from './middleware/auth.js'
 import { authLimiter, passwordResetLimiter, apiLimiter, statCreationLimiter } from './middleware/rateLimit.js'
+import { initializeWebSocket } from './websocket.js'
 
 dotenv.config()
 
 const app = express()
+const httpServer = createServer(app)
 const PORT = process.env.PORT || 3001
+
+// Initialize WebSocket server
+const io = initializeWebSocket(httpServer)
+app.set('io', io) // Make io available in routes
 
 // Security headers
 app.use(helmet({
@@ -93,6 +102,8 @@ app.use('/api/email', requireAuth, emailRouter)
 app.use('/api/notifications', requireAuth, notificationsRouter)
 app.use('/api/player-comments', requireAuth, playerCommentsRouter)
 app.use('/api/visits', requireAuth, visitsRouter)
+app.use('/api/activity', requireAuth, activityRouter)
+app.use('/api/chat', requireAuth, chatRouter)
 app.use('/api', requireAuth, backupRouter)
 
 // Error handling
@@ -101,6 +112,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal server error' })
 })
 
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`)
+  console.log(`WebSocket server initialized`)
 })

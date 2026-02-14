@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Calendar, Plus, X, Pencil, Trash2, MapPin } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Calendar, Plus, X, Pencil, Trash2, MapPin, ChevronLeft, ChevronRight } from 'lucide-react'
 import { visitsApi } from '../utils/api'
 import { authApi } from '../utils/api'
 
@@ -17,6 +17,8 @@ function PlayerVisits({ playerId }) {
     notes: '',
   })
   const [currentUser, setCurrentUser] = useState(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [visitsPerPage] = useState(10)
 
   useEffect(() => {
     loadVisits()
@@ -111,10 +113,20 @@ function PlayerVisits({ playerId }) {
     setAddingVisit(false)
   }
 
-  if (loading) return <p>Loading visits...</p>
-
+  // Pagination
   const upcomingVisits = visits.filter((v) => new Date(v.visit_date) >= new Date())
   const pastVisits = visits.filter((v) => new Date(v.visit_date) < new Date())
+  const allVisits = [...upcomingVisits, ...pastVisits]
+  const totalPages = Math.ceil(allVisits.length / visitsPerPage)
+  const paginatedVisits = useMemo(() => {
+    const start = (currentPage - 1) * visitsPerPage
+    return allVisits.slice(start, start + visitsPerPage)
+  }, [allVisits, currentPage, visitsPerPage])
+  
+  const paginatedUpcoming = paginatedVisits.filter((v) => new Date(v.visit_date) >= new Date())
+  const paginatedPast = paginatedVisits.filter((v) => new Date(v.visit_date) < new Date())
+
+  if (loading) return <p>Loading visits...</p>
 
   return (
     <div className="player-visits">
@@ -194,10 +206,10 @@ function PlayerVisits({ playerId }) {
           <p className="empty-state">No visits scheduled yet.</p>
         ) : (
           <>
-            {upcomingVisits.length > 0 && (
+            {paginatedUpcoming.length > 0 && (
               <div className="visits-section">
-                <h5>Upcoming</h5>
-                {upcomingVisits.map((visit) => (
+                <h5>Upcoming {upcomingVisits.length > paginatedUpcoming.length ? `(${upcomingVisits.length} total)` : ''}</h5>
+                {paginatedUpcoming.map((visit) => (
                   <div key={visit.id} className="visit-item upcoming">
                     <div className="visit-content">
                       <div className="visit-header">
@@ -230,13 +242,13 @@ function PlayerVisits({ playerId }) {
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
+              ))}
+            </div>
             )}
-            {pastVisits.length > 0 && (
+            {paginatedPast.length > 0 && (
               <div className="visits-section">
-                <h5>Past Visits</h5>
-                {pastVisits.map((visit) => (
+                <h5>Past Visits {pastVisits.length > paginatedPast.length ? `(${pastVisits.length} total)` : ''}</h5>
+                {paginatedPast.map((visit) => (
                   <div key={visit.id} className="visit-item">
                     <div className="visit-content">
                       <div className="visit-header">
@@ -269,7 +281,30 @@ function PlayerVisits({ playerId }) {
                       </div>
                     )}
                   </div>
-                ))}
+              ))}
+            </div>
+            )}
+            {totalPages > 1 && (
+              <div className="pagination" style={{ marginTop: '16px' }}>
+                <button
+                  className="btn-ghost"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft size={16} />
+                  Previous
+                </button>
+                <span className="pagination-info">
+                  Page {currentPage} of {totalPages} ({visits.length} total)
+                </span>
+                <button
+                  className="btn-ghost"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </button>
               </div>
             )}
           </>

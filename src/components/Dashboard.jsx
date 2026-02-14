@@ -15,6 +15,7 @@ import {
   Search,
   Eye,
   ClipboardList,
+  Flag,
 } from 'lucide-react'
 import {
   loadData,
@@ -35,6 +36,8 @@ import {
 } from '../utils/exportUtils'
 import { emailApi, gradesApi } from '../utils/api'
 import TopPerformances from './TopPerformances'
+import EmptyState from './EmptyState'
+import ActivityFeed from './ActivityFeed'
 
 const GAMES_PER_PAGE = 10
 
@@ -505,7 +508,12 @@ function Dashboard() {
         </div>
       </section>
 
-          {/* Top Performances */}
+      {/* Activity Feed */}
+      <section className="panel" style={{ marginTop: '24px' }}>
+        <ActivityFeed limit={15} />
+      </section>
+
+      {/* Top Performances */}
       <section style={{ marginTop: '24px' }}>
         <TopPerformances />
       </section>
@@ -626,7 +634,7 @@ function Dashboard() {
         <div className="panel">
           <h3>Flagged Player Queue</h3>
           {flaggedPlayers.length === 0 ? (
-            <p className="empty-state">Flag players to build your Saturday watchlist.</p>
+            <EmptyState icon={Flag} title="No flagged players" subtitle="Flag players to build your Saturday watchlist." />
           ) : (
             <>
               <div className="search-filters">
@@ -699,7 +707,7 @@ function Dashboard() {
         <div className="panel">
           <h3>All Games ({sortedGames.length})</h3>
           {sortedGames.length === 0 ? (
-            <p className="empty-state">Start a game review to log stats and export CSV.</p>
+            <EmptyState icon={Video} title="No games yet" subtitle="Start a game review to log stats and export CSV." />
           ) : (
             <>
               <ul className="list">

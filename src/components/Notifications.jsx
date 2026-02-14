@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react'
-import { Bell, X, Check, CheckCheck } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Bell, X, Check, CheckCheck, Inbox, ChevronLeft, ChevronRight } from 'lucide-react'
 import { notificationsApi } from '../utils/api'
+import EmptyState from './EmptyState'
 
 function Notifications({ onClose }) {
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [notificationsPerPage] = useState(20)
 
   useEffect(() => {
     loadNotifications()
@@ -65,6 +68,17 @@ function Notifications({ onClose }) {
 
   const unreadNotifications = notifications.filter((n) => !n.read)
   const readNotifications = notifications.filter((n) => n.read)
+  
+  // Pagination - show unread first, then read
+  const allNotifications = [...unreadNotifications, ...readNotifications]
+  const totalPages = Math.ceil(allNotifications.length / notificationsPerPage)
+  const paginatedNotifications = useMemo(() => {
+    const start = (currentPage - 1) * notificationsPerPage
+    return allNotifications.slice(start, start + notificationsPerPage)
+  }, [allNotifications, currentPage, notificationsPerPage])
+  
+  const paginatedUnread = paginatedNotifications.filter((n) => !n.read)
+  const paginatedRead = paginatedNotifications.filter((n) => n.read)
 
   return (
     <div className="notifications-panel">
@@ -88,13 +102,13 @@ function Notifications({ onClose }) {
       {loading ? (
         <p>Loading notifications...</p>
       ) : notifications.length === 0 ? (
-        <p className="empty-state">No notifications</p>
+        <EmptyState icon={Inbox} title="All caught up" subtitle="No notifications right now." />
       ) : (
         <div className="notifications-list">
-          {unreadNotifications.length > 0 && (
+          {paginatedUnread.length > 0 && (
             <div className="notifications-section">
-              <h4>Unread</h4>
-              {unreadNotifications.map((notification) => (
+              <h4>Unread {unreadNotifications.length > paginatedUnread.length ? `(${unreadNotifications.length} total)` : ''}</h4>
+              {paginatedUnread.map((notification) => (
                 <div key={notification.id} className="notification-item unread">
                   <div className="notification-content">
                     <strong>{notification.title}</strong>
@@ -123,10 +137,10 @@ function Notifications({ onClose }) {
               ))}
             </div>
           )}
-          {readNotifications.length > 0 && (
+          {paginatedRead.length > 0 && (
             <div className="notifications-section">
-              <h4>Read</h4>
-              {readNotifications.map((notification) => (
+              <h4>Read {readNotifications.length > paginatedRead.length ? `(${readNotifications.length} total)` : ''}</h4>
+              {paginatedRead.map((notification) => (
                 <div key={notification.id} className="notification-item">
                   <div className="notification-content">
                     <strong>{notification.title}</strong>
@@ -146,6 +160,29 @@ function Notifications({ onClose }) {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          {totalPages > 1 && (
+            <div className="pagination" style={{ marginTop: '16px', padding: '12px' }}>
+              <button
+                className="btn-ghost"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft size={16} />
+                Previous
+              </button>
+              <span className="pagination-info">
+                Page {currentPage} of {totalPages} ({allNotifications.length} total)
+              </span>
+              <button
+                className="btn-ghost"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+                <ChevronRight size={16} />
+              </button>
             </div>
           )}
         </div>

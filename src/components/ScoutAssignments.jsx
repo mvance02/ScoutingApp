@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, UserCheck, Users, Calendar, Layers } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, UserCheck, Users, Calendar, Layers, ChevronLeft, ChevronRight } from 'lucide-react'
 import { assignmentsApi, authApi } from '../utils/api'
 import { loadPlayers, loadGames } from '../utils/storage'
 
@@ -13,6 +13,8 @@ function ScoutAssignments() {
   const [games, setGames] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [assignmentsPerPage] = useState(10)
 
   // New assignment form
   const [showForm, setShowForm] = useState(false)
@@ -103,21 +105,31 @@ function ScoutAssignments() {
   }
 
   // Group assignments by scout
-  const assignmentsByScout = assignments.reduce((acc, assignment) => {
-    const scoutId = assignment.scout_id
-    if (!acc[scoutId]) {
-      acc[scoutId] = {
-        scout: {
-          id: scoutId,
-          name: assignment.scout_name || assignment.scout_email,
-          email: assignment.scout_email,
-        },
-        assignments: [],
+  const assignmentsByScout = useMemo(() => {
+    return assignments.reduce((acc, assignment) => {
+      const scoutId = assignment.scout_id
+      if (!acc[scoutId]) {
+        acc[scoutId] = {
+          scout: {
+            id: scoutId,
+            name: assignment.scout_name || assignment.scout_email,
+            email: assignment.scout_email,
+          },
+          assignments: [],
+        }
       }
-    }
-    acc[scoutId].assignments.push(assignment)
-    return acc
-  }, {})
+      acc[scoutId].assignments.push(assignment)
+      return acc
+    }, {})
+  }, [assignments])
+
+  // Pagination for scout groups
+  const scoutGroups = Object.values(assignmentsByScout)
+  const totalPages = Math.ceil(scoutGroups.length / assignmentsPerPage)
+  const paginatedScoutGroups = useMemo(() => {
+    const start = (currentPage - 1) * assignmentsPerPage
+    return scoutGroups.slice(start, start + assignmentsPerPage)
+  }, [scoutGroups, currentPage, assignmentsPerPage])
 
   if (loading) {
     return (
@@ -252,12 +264,13 @@ function ScoutAssignments() {
         </section>
       )}
 
-      {Object.keys(assignmentsByScout).length === 0 ? (
+      {scoutGroups.length === 0 ? (
         <section className="panel">
           <p className="empty-state">No assignments yet. Create one to get started.</p>
         </section>
       ) : (
-        Object.values(assignmentsByScout).map(({ scout, assignments: scoutAssignments }) => (
+        <>
+          {paginatedScoutGroups.map(({ scout, assignments: scoutAssignments }) => (
           <section key={scout.id} className="panel">
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Users size={18} />
@@ -337,7 +350,31 @@ function ScoutAssignments() {
               ))}
             </ul>
           </section>
-        ))
+          ))}
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button
+                className="btn-ghost"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft size={16} />
+                Previous
+              </button>
+              <span className="pagination-info">
+                Page {currentPage} of {totalPages} ({scoutGroups.length} scout{scoutGroups.length !== 1 ? 's' : ''})
+              </span>
+              <button
+                className="btn-ghost"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

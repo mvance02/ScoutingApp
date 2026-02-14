@@ -56,6 +56,7 @@ export const playersApi = {
   create: (data) => request('/players', { method: 'POST', body: data }),
   update: (id, data) => request(`/players/${id}`, { method: 'PUT', body: data }),
   delete: (id) => request(`/players/${id}`, { method: 'DELETE' }),
+  getStatusHistory: (id) => request(`/players/${id}/status-history`),
 }
 
 // Auth API
@@ -106,6 +107,7 @@ export const notesApi = {
 export const emailApi = {
   sendGameDay: (payload) => request('/email/game-day', { method: 'POST', body: payload }),
   sendRecruitsReport: (payload) => request('/email/recruits-report', { method: 'POST', body: payload }),
+  sendRecruitsReportByCoach: (payload) => request('/email/recruits-report-by-coach', { method: 'POST', body: payload }),
 }
 
 // Assignments API
@@ -185,6 +187,33 @@ export const visitsApi = {
   create: (data) => request('/visits', { method: 'POST', body: data }),
   update: (id, data) => request(`/visits/${id}`, { method: 'PUT', body: data }),
   delete: (id) => request(`/visits/${id}`, { method: 'DELETE' }),
+}
+
+// Activity Feed API
+export const activityApi = {
+  getRecent: (params = {}) => {
+    const query = new window.URLSearchParams(params).toString()
+    return request(`/activity${query ? `?${query}` : ''}`)
+  },
+  getCount: () => request('/activity/count'),
+}
+
+// Chat API
+export const chatApi = {
+  getRoom: (type, entityId = null) => {
+    const path = entityId ? `/chat/room/${type}/${entityId}` : `/chat/room/${type}`
+    return request(path)
+  },
+  getRooms: (type = null) => {
+    const query = type ? `?type=${type}` : ''
+    return request(`/chat/rooms${query}`)
+  },
+  getMessages: (roomId, params = {}) => {
+    const query = new window.URLSearchParams(params).toString()
+    return request(`/chat/messages/${roomId}${query ? `?${query}` : ''}`)
+  },
+  sendMessage: (roomId, message) => request('/chat/messages', { method: 'POST', body: { room_id: roomId, message } }),
+  markAsRead: (roomId) => request(`/chat/messages/${roomId}/read`, { method: 'PUT' }),
 }
 
 // Check if API is available

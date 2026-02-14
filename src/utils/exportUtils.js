@@ -871,7 +871,7 @@ function drawInitialSquare(doc, name, cell) {
   
   // Draw blue oval background
   doc.setFillColor(0, 48, 135) // BYU blue #003087
-  doc.ellipse(centerX, centerY, available * 0.45, available * 0.4, 0, 0, 360, 'F')
+  doc.ellipse(centerX, centerY, available * 0.45, available * 0.4, 'F')
   
   // Draw white Y letter using basic shapes
   doc.setFillColor(255, 255, 255)
@@ -935,17 +935,6 @@ async function buildRecruitsReportDoc(recruits, notes, weekStart, weekEnd) {
   doc.setDrawColor(200)
   doc.line(15, headerY + 20, pageWidth - 15, headerY + 20)
 
-  // Pre-load all profile images
-  const imageMap = {}
-  const imagePromises = recruits
-    .filter((r) => r.profile_picture_url)
-    .map(async (r) => {
-      const url = `${SERVER_BASE}${r.profile_picture_url}`
-      const dataUrl = await loadProfileImage(url)
-      if (dataUrl) imageMap[r.id] = dataUrl
-    })
-  await Promise.all(imagePromises)
-
   const notesByRecruit = {}
   notes.forEach((note) => {
     if (!notesByRecruit[note.recruit_id]) notesByRecruit[note.recruit_id] = []
@@ -957,9 +946,6 @@ async function buildRecruitsReportDoc(recruits, notes, weekStart, weekEnd) {
     DEFENSE: ['DL', 'DE', 'LB', 'C', 'S'],
     SPECIAL: ['K', 'P'],
   }
-
-  const imgSize = 5 // radius in mm for profile pics in table
-  const imgPadding = imgSize * 2 + 2 // left padding in name cell for image
 
   let yPos = headerY + 28
   Object.entries(groups).forEach(([side, positions]) => {
@@ -984,7 +970,7 @@ async function buildRecruitsReportDoc(recruits, notes, weekStart, weekEnd) {
       doc.text(`${pos} (${posRecruits.length})`, 15, yPos)
       yPos += 4
 
-      const headers = ['', 'Name', 'School', 'Class', 'Status', 'Last Game', 'Stats', 'Next Game', 'Notes']
+      const headers = ['Name', 'School', 'Class', 'Status', 'Last Game', 'Stats', 'Next Game', 'Notes']
       const body = posRecruits.map((r) => {
         const lastGame = [
           r.last_game_date || '',
@@ -1015,11 +1001,7 @@ async function buildRecruitsReportDoc(recruits, notes, weekStart, weekEnd) {
           r.status === 'COMMITTED ELSEWHERE' && r.committed_school
             ? ` (${r.committed_school}${r.committed_date ? `, ${String(r.committed_date).split('T')[0]}` : ''})`
             : ''
-        return {
-          _recruitId: r.id,
-          _recruitName: r.name,
-          cells: [
-            '', // photo placeholder column
+        return [
             r.name,
             r.school,
             r.class_year || '',
@@ -1028,40 +1010,20 @@ async function buildRecruitsReportDoc(recruits, notes, weekStart, weekEnd) {
             formatRecruitStatsLine(r.position, r.stats || {}),
             nextGame || '-',
             notesText,
-          ],
-        }
+        ]
       })
-
-      // Keep a lookup from row index to recruit info
-      const rowRecruitMap = body.map((b) => ({
-        id: b._recruitId,
-        name: b._recruitName,
-      }))
-      const tableBody = body.map((b) => b.cells)
 
       autoTable(doc, {
         startY: yPos,
         head: [headers],
-        body: tableBody,
+        body,
         theme: 'grid',
         headStyles: { fillColor: [37, 99, 235], textColor: 255, fontSize: 6 },
-        styles: { fontSize: 5.5, cellPadding: 1.5, minCellHeight: imgSize * 2 + 2 },
+        styles: { fontSize: 5.5, cellPadding: 1.5 },
         margin: { left: 10, right: 10 },
         columnStyles: {
-          0: { cellWidth: imgSize * 2 + 3, halign: 'center' }, // photo column
-          6: { cellWidth: 50 },
-          8: { cellWidth: 75 },
-        },
-        didDrawCell: (data) => {
-          if (data.section === 'body' && data.column.index === 0) {
-            const recruit = rowRecruitMap[data.row.index]
-            if (!recruit) return
-            if (imageMap[recruit.id]) {
-              drawSquareImage(doc, imageMap[recruit.id], data.cell)
-            } else {
-              drawInitialSquare(doc, recruit.name, data.cell)
-            }
-          }
+          5: { cellWidth: 50 },
+          7: { cellWidth: 75 },
         },
       })
 
@@ -1080,6 +1042,39 @@ export async function exportRecruitsReportPDF(recruits, notes, weekStart, weekEn
 export async function exportRecruitsReportPDFBlob(recruits, notes, weekStart, weekEnd) {
   const doc = await buildRecruitsReportDoc(recruits, notes, weekStart, weekEnd)
   return doc.output('blob')
+}
+
+const RECRUIT_COACH_GROUPS = {
+  QB: ['QB'],
+  RB: ['RB'],
+  WR: ['WR'],
+  TE: ['TE'],
+  OL: ['OL'],
+  DL: ['DL', 'DE'],
+  LB: ['LB'],
+  DB: ['C', 'S'],
+  ST: ['K', 'P'],
+}
+
+export async function exportRecruitsReportPDFByCoach(recruits, notes, weekStart, weekEnd) {
+  const outputs = []
+
+  for (const [group, positions] of Object.entries(RECRUIT_COACH_GROUPS)) {
+    const groupRecruits = recruits.filter((r) => positions.includes(r.position))
+    if (groupRecruits.length === 0) continue
+
+    const recruitIds = new Set(groupRecruits.map((r) => r.id))
+    const groupNotes = notes.filter((n) => recruitIds.has(n.recruit_id))
+
+    const doc = await buildRecruitsReportDoc(groupRecruits, groupNotes, weekStart, weekEnd)
+    outputs.push({
+      positionGroup: group,
+      filename: `recruits_report_${group}_${weekStart}.pdf`,
+      blob: doc.output('blob'),
+    })
+  }
+
+  return outputs
 }
 
 // Helper functions

@@ -37,6 +37,7 @@ function getCoachEmailForGroup(positionGroup) {
     EDGE: process.env.COACH_EMAIL_EDGE,
     LB: process.env.COACH_EMAIL_LB,
     DB: process.env.COACH_EMAIL_DB,
+    ST: process.env.COACH_EMAIL_ST,
     ATH: process.env.COACH_EMAIL_ATH,
   }
 
@@ -154,6 +155,68 @@ router.post('/recruits-report', async (req, res, next) => {
     })
 
     res.json({ status: 'ok' })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.post('/recruits-report-by-coach', async (req, res, next) => {
+  try {
+    const { weekStart, attachments } = req.body
+    if (!attachments || attachments.length === 0) {
+      return res.status(400).json({ error: 'No attachments provided' })
+    }
+
+    const transporter = getTransporter()
+    if (!transporter) {
+      return res.status(500).json({ error: 'Email transport not configured' })
+    }
+
+    const from = process.env.EMAIL_FROM || 'scouting@localhost'
+    const results = []
+
+    for (const item of attachments) {
+      const to = getCoachEmailForGroup(item.positionGroup)
+      if (!to) {
+        results.push({ positionGroup: item.positionGroup, status: 'skipped', reason: 'missing coach email' })
+        continue
+      }
+
+      const mail = {
+        from,
+        to,
+        subject: `Recruits Report - ${item.positionGroup} - Week of ${weekStart}`,
+        text: `Attached is the ${item.positionGroup} recruits report for the week of ${weekStart}.`,
+        attachments: [
+          {
+            filename: item.filename,
+            content: Buffer.from(item.data, 'base64'),
+            contentType: 'application/pdf',
+          },
+        ],
+      }
+
+      await transporter.sendMail(mail)
+      results.push({ positionGroup: item.positionGroup, status: 'sent', to })
+
+      await logAudit({
+        userId: req.user?.id,
+        userEmail: req.user?.email,
+        action: 'EMAIL',
+        tableName: 'recruits_report_by_coach',
+        recordId: null,
+        oldValues: null,
+        newValues: {
+          weekStart,
+          positionGroup: item.positionGroup,
+          to,
+          filename: item.filename,
+        },
+        ipAddress: getClientIp(req),
+      })
+    }
+
+    res.json({ status: 'ok', results })
   } catch (err) {
     next(err)
   }

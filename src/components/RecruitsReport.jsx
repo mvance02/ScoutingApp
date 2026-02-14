@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Plus, Save, Filter, FileText, Mail, Search } from 'lucide-react'
 import { recruitReportsApi, recruitNotesApi, emailApi } from '../utils/api'
-import { exportRecruitsReportPDF, exportRecruitsReportPDFBlob } from '../utils/exportUtils'
+import { exportRecruitsReportPDF, exportRecruitsReportPDFBlob, exportRecruitsReportPDFByCoach } from '../utils/exportUtils'
 
 const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'DE', 'LB', 'C', 'S', 'K', 'P']
 const SIDE_OF_BALL = {
@@ -23,6 +23,18 @@ const COACH_MAP = {
   S: 'Demario Warren',
   K: 'Justin Ena',
   P: 'Justin Ena',
+}
+
+const COACH_GROUPS = {
+  QB: { label: `QB — ${COACH_MAP.QB}`, positions: ['QB'] },
+  RB: { label: `RB — ${COACH_MAP.RB}`, positions: ['RB'] },
+  WR: { label: `WR — ${COACH_MAP.WR}`, positions: ['WR'] },
+  TE: { label: `TE — ${COACH_MAP.TE}`, positions: ['TE'] },
+  OL: { label: `OL — ${COACH_MAP.OL}`, positions: ['OL'] },
+  DL: { label: `DL/DE — ${COACH_MAP.DL}`, positions: ['DL', 'DE'] },
+  LB: { label: `LB — ${COACH_MAP.LB}`, positions: ['LB'] },
+  DB: { label: `C/S — ${COACH_MAP.C} / ${COACH_MAP.S}`, positions: ['C', 'S'] },
+  ST: { label: `K/P — ${COACH_MAP.K}`, positions: ['K', 'P'] },
 }
 
 const STAT_FIELDS = {
@@ -106,6 +118,12 @@ const STAT_FIELDS = {
   ],
 }
 
+function toTitleCase(str) {
+  return String(str)
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 const NOTE_SOURCES = ['247Sports', 'ON3', 'Rivals', 'ESPN', 'X', 'Instagram']
 const STATUS_OPTIONS = [
   'COMMITTED',
@@ -175,6 +193,9 @@ function RecruitsReport() {
   })
   const [selectedStatuses, setSelectedStatuses] = useState([])
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
+
+  const [coachEmailOpen, setCoachEmailOpen] = useState(false)
+  const [selectedCoaches, setSelectedCoaches] = useState(Object.keys(COACH_GROUPS))
 
   const [drafts, setDrafts] = useState({})
 
@@ -391,6 +412,42 @@ function RecruitsReport() {
     }
   }
 
+  const handleEmailCoaches = async () => {
+    if (selectedCoaches.length === 0) {
+      setStatus('Select at least one coach')
+      setTimeout(() => setStatus(''), 2000)
+      return
+    }
+    setStatus('Generating per-coach PDFs...')
+    try {
+      const allOutputs = await exportRecruitsReportPDFByCoach(filteredRecruits, notes, weekStart, weekEnd)
+      const selected = allOutputs.filter((o) => selectedCoaches.includes(o.positionGroup))
+      if (selected.length === 0) {
+        setStatus('No recruits found for selected coaches')
+        setTimeout(() => setStatus(''), 3000)
+        return
+      }
+      setStatus(`Sending ${selected.length} email(s)...`)
+      const attachments = await Promise.all(
+        selected.map(async (o) => {
+          const buffer = await o.blob.arrayBuffer()
+          return {
+            positionGroup: o.positionGroup,
+            filename: o.filename,
+            data: btoa(String.fromCharCode(...new Uint8Array(buffer))),
+          }
+        })
+      )
+      await emailApi.sendRecruitsReportByCoach({ weekStart, attachments })
+      setStatus(`Sent ${selected.length} coach email(s)!`)
+      setTimeout(() => setStatus(''), 3000)
+    } catch (err) {
+      console.error('Coach email error:', err)
+      setStatus(err?.message || 'Coach email failed')
+      setTimeout(() => setStatus(''), 3000)
+    }
+  }
+
   if (loading) {
     return (
       <div className="page">
@@ -413,9 +470,56 @@ function RecruitsReport() {
           <button className="btn-secondary" onClick={handleEmailReport}>
             <Mail size={16} /> Email
           </button>
+          <button
+            className={`btn-secondary${coachEmailOpen ? ' active' : ''}`}
+            onClick={() => setCoachEmailOpen((prev) => !prev)}
+          >
+            <Mail size={16} /> Email Coaches
+          </button>
         </div>
         {status ? <span className="helper-text">{status}</span> : null}
       </header>
+
+      {coachEmailOpen && (
+        <section className="panel coach-email-panel">
+          <h4>Send to Position Coaches</h4>
+          <div className="coach-select-actions">
+            <button
+              className="btn-ghost"
+              onClick={() => setSelectedCoaches(Object.keys(COACH_GROUPS))}
+            >
+              Select All
+            </button>
+            <button
+              className="btn-ghost"
+              onClick={() => setSelectedCoaches([])}
+            >
+              Deselect All
+            </button>
+          </div>
+          <div className="coach-checkboxes">
+            {Object.entries(COACH_GROUPS).map(([key, { label }]) => (
+              <label key={key} className="coach-checkbox">
+                <input
+                  type="checkbox"
+                  checked={selectedCoaches.includes(key)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedCoaches((prev) => [...prev, key])
+                    } else {
+                      setSelectedCoaches((prev) => prev.filter((k) => k !== key))
+                    }
+                  }}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+          <button className="btn-primary" onClick={handleEmailCoaches}>
+            <Mail size={16} /> Send to {selectedCoaches.length} Coach{selectedCoaches.length !== 1 ? 'es' : ''}
+          </button>
+        </section>
+      )}
 
       <section className="panel">
         <div className="report-controls">
@@ -573,7 +677,7 @@ function RecruitCard({
                     key={status}
                     className={`status-badge status-${String(status).toLowerCase().replace(/\s+/g, '-')}`}
                   >
-                    {status}
+                    {toTitleCase(status)}
                   </span>
                 ))}
               </div>

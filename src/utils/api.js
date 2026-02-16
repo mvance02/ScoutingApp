@@ -136,6 +136,7 @@ export const backupApi = {
 // Performances API
 export const performancesApi = {
   getTopPerformances: (limit = 3) => request(`/performances/top-performances?limit=${limit}`),
+  getBreakoutPlayers: (limit = 10) => request(`/performances/breakout-players?limit=${limit}`),
   getLeaderboard: (options = {}) => {
     const params = new window.URLSearchParams()
     if (options.startDate) params.append('start_date', options.startDate)

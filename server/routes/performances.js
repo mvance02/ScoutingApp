@@ -285,4 +285,247 @@ router.get('/leaderboard', async (req, res, next) => {
   }
 })
 
+// Demo data for breakout players when no real data exists
+const DEMO_BREAKOUT_PLAYERS = [
+  {
+    player: { id: 'demo-1', name: 'Jaylen Carter', school: 'Westlake HS', position: 'RB' },
+    game: { id: 'demo-g1', opponent: 'Eastside Academy', date: '2025-10-18' },
+    grade: 'A',
+    breakoutScore: 3.2,
+    keyStats: [
+      { statType: 'Rush', gameValue: 156, seasonAvg: 82, unit: 'yds' },
+      { statType: 'Rush TD', gameValue: 3, seasonAvg: 0.8, unit: '' },
+      { statType: 'Reception', gameValue: 45, seasonAvg: 18, unit: 'yds' },
+    ],
+  },
+  {
+    player: { id: 'demo-2', name: 'Marcus Thompson', school: 'Central Prep', position: 'WR' },
+    game: { id: 'demo-g2', opponent: 'Lincoln HS', date: '2025-10-18' },
+    grade: 'A-',
+    breakoutScore: 2.8,
+    keyStats: [
+      { statType: 'Reception', gameValue: 142, seasonAvg: 58, unit: 'yds' },
+      { statType: 'Rec TD', gameValue: 2, seasonAvg: 0.4, unit: '' },
+    ],
+  },
+  {
+    player: { id: 'demo-3', name: 'Aidan Brooks', school: 'Ridge Valley', position: 'DE' },
+    game: { id: 'demo-g3', opponent: 'Summit Prep', date: '2025-10-17' },
+    grade: null,
+    breakoutScore: 2.4,
+    keyStats: [
+      { statType: 'Sack', gameValue: 3, seasonAvg: 0.7, unit: '' },
+      { statType: 'TFL', gameValue: 5, seasonAvg: 1.8, unit: '' },
+      { statType: 'Tackle Solo', gameValue: 8, seasonAvg: 4.2, unit: '' },
+    ],
+  },
+  {
+    player: { id: 'demo-4', name: 'Chris Wallace', school: 'Bay Area HS', position: 'QB' },
+    game: { id: 'demo-g4', opponent: 'Harbor Prep', date: '2025-10-18' },
+    grade: 'B+',
+    breakoutScore: 1.9,
+    keyStats: [
+      { statType: 'Pass TD', gameValue: 4, seasonAvg: 1.5, unit: '' },
+      { statType: 'Pass Comp', gameValue: 285, seasonAvg: 178, unit: 'yds' },
+    ],
+  },
+]
+
+// GET breakout players - recruits whose latest game significantly exceeded their season average
+router.get('/breakout-players', async (req, res, next) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10
+    const threshold = parseFloat(req.query.threshold) || 1.5
+
+    // Find players with stats in 2+ games, get their most recent game
+    const playersResult = await pool.query(
+      `SELECT DISTINCT s.player_id,
+              p.name as player_name,
+              p.school as player_school,
+              p.position as player_position,
+              (SELECT g2.id FROM games g2
+               JOIN stats s2 ON s2.game_id = g2.id AND s2.player_id = s.player_id
+               ORDER BY g2.date DESC LIMIT 1) as latest_game_id,
+              (SELECT g2.date FROM games g2
+               JOIN stats s2 ON s2.game_id = g2.id AND s2.player_id = s.player_id
+               ORDER BY g2.date DESC LIMIT 1) as latest_game_date,
+              (SELECT g2.opponent FROM games g2
+               JOIN stats s2 ON s2.game_id = g2.id AND s2.player_id = s.player_id
+               ORDER BY g2.date DESC LIMIT 1) as latest_game_opponent
+       FROM stats s
+       JOIN players p ON s.player_id = p.id
+       GROUP BY s.player_id, p.name, p.school, p.position
+       HAVING COUNT(DISTINCT s.game_id) >= 2`
+    )
+
+    if (playersResult.rows.length === 0) {
+      return res.json({
+        breakoutPlayers: DEMO_BREAKOUT_PLAYERS.slice(0, limit),
+        isDemo: true,
+      })
+    }
+
+    const breakoutPlayers = []
+
+    for (const player of playersResult.rows) {
+      // Get season averages excluding the latest game
+      const avgResult = await pool.query(
+        `SELECT stat_type,
+                AVG(value)::float as avg,
+                STDDEV_POP(value)::float as stddev,
+                COUNT(*)::int as count
+         FROM stats
+         WHERE player_id = $1 AND game_id != $2
+         GROUP BY stat_type
+         HAVING COUNT(*) >= 2`,
+        [player.player_id, player.latest_game_id]
+      )
+
+      if (avgResult.rows.length === 0) continue
+
+      // Build averages lookup
+      const averages = {}
+      avgResult.rows.forEach(row => {
+        averages[row.stat_type] = {
+          avg: row.avg,
+          stddev: row.stddev || 0,
+          count: row.count,
+        }
+      })
+
+      // Get latest game stats
+      const latestStatsResult = await pool.query(
+        `SELECT stat_type, value FROM stats
+         WHERE player_id = $1 AND game_id = $2`,
+        [player.player_id, player.latest_game_id]
+      )
+
+      // Aggregate latest game stats
+      const gameStats = {}
+      for (const stat of latestStatsResult.rows) {
+        const key = stat.stat_type
+        if (COUNT_STATS.has(key)) {
+          gameStats[key] = (gameStats[key] || 0) + 1
+        } else {
+          gameStats[key] = (gameStats[key] || 0) + (stat.value || 0)
+        }
+      }
+
+      // Calculate breakout score: sum of z-scores across stat types
+      let breakoutScore = 0
+      let scoredStats = 0
+      const keyStats = []
+
+      for (const [statType, gameValue] of Object.entries(gameStats)) {
+        const avg = averages[statType]
+        if (!avg || avg.stddev <= 0) continue
+
+        // For count stats, compute the average count per game
+        let avgValue = avg.avg
+        if (COUNT_STATS.has(statType)) {
+          // avg.avg is the average value per stat entry, but we need count per game
+          // Re-query for count-based average per game
+          continue // Skip count stats from z-score if stddev-based approach won't work well
+        }
+
+        const zScore = (gameValue - avgValue) / avg.stddev
+        if (zScore > 0) {
+          breakoutScore += zScore
+          scoredStats++
+          const isYardage = !COUNT_STATS.has(statType)
+          keyStats.push({
+            statType,
+            gameValue: Math.round(gameValue * 10) / 10,
+            seasonAvg: Math.round(avgValue * 10) / 10,
+            unit: isYardage ? 'yds' : '',
+          })
+        }
+      }
+
+      // Also handle count stats with a per-game approach
+      const countStatAvgResult = await pool.query(
+        `SELECT stat_type,
+                COUNT(*)::float / COUNT(DISTINCT game_id)::float as avg_per_game,
+                COUNT(DISTINCT game_id)::int as games
+         FROM stats
+         WHERE player_id = $1 AND game_id != $2 AND stat_type = ANY($3)
+         GROUP BY stat_type
+         HAVING COUNT(DISTINCT game_id) >= 2`,
+        [player.player_id, player.latest_game_id, Array.from(COUNT_STATS)]
+      )
+
+      for (const row of countStatAvgResult.rows) {
+        const gameValue = gameStats[row.stat_type]
+        if (gameValue == null) continue
+        const avgPerGame = row.avg_per_game
+        if (avgPerGame <= 0) continue
+
+        // Simple ratio-based z-score for count stats
+        const ratio = gameValue / avgPerGame
+        if (ratio > 1.5) {
+          const pseudoZ = ratio - 1 // e.g., 3x average = z-score of 2
+          breakoutScore += pseudoZ
+          scoredStats++
+          keyStats.push({
+            statType: row.stat_type,
+            gameValue,
+            seasonAvg: Math.round(avgPerGame * 10) / 10,
+            unit: '',
+          })
+        }
+      }
+
+      if (scoredStats === 0 || breakoutScore < threshold) continue
+
+      // Normalize breakout score
+      breakoutScore = Math.round((breakoutScore / Math.max(scoredStats, 1)) * 10) / 10
+
+      if (breakoutScore < threshold) continue
+
+      // Get grade if available
+      const gradeResult = await pool.query(
+        `SELECT grade FROM game_player_grades
+         WHERE game_id = $1 AND player_id = $2`,
+        [player.latest_game_id, player.player_id]
+      )
+
+      // Sort key stats by impact (highest z-score first) and take top 3
+      keyStats.sort((a, b) => {
+        const aRatio = a.seasonAvg > 0 ? a.gameValue / a.seasonAvg : a.gameValue
+        const bRatio = b.seasonAvg > 0 ? b.gameValue / b.seasonAvg : b.gameValue
+        return bRatio - aRatio
+      })
+
+      breakoutPlayers.push({
+        player: {
+          id: player.player_id,
+          name: player.player_name,
+          school: player.player_school,
+          position: player.player_position,
+        },
+        game: {
+          id: player.latest_game_id,
+          opponent: player.latest_game_opponent,
+          date: player.latest_game_date,
+        },
+        grade: gradeResult.rows[0]?.grade || null,
+        breakoutScore,
+        keyStats: keyStats.slice(0, 3),
+      })
+    }
+
+    // Sort by breakout score descending
+    breakoutPlayers.sort((a, b) => b.breakoutScore - a.breakoutScore)
+
+    const result = breakoutPlayers.slice(0, limit)
+
+    res.json({
+      breakoutPlayers: result.length > 0 ? result : DEMO_BREAKOUT_PLAYERS.slice(0, limit),
+      isDemo: result.length === 0,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
 export default router

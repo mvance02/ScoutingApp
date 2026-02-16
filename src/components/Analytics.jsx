@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, ReferenceLine,
 } from 'recharts'
 import { loadPlayers } from '../utils/storage'
-import { playersApi, recruitsApi } from '../utils/api'
+import { playersApi, recruitsApi, performancesApi } from '../utils/api'
+import { exportAnalyticsDashboardPDF } from '../utils/exportUtils'
 
 const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'DE', 'LB', 'C', 'S', 'K', 'P']
 
@@ -111,18 +113,41 @@ function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
     <div style={{
-      background: 'var(--color-bg-secondary)',
+      background: 'var(--color-bg-card)',
       border: '1px solid var(--color-border)',
       borderRadius: '8px',
-      padding: '12px',
+      padding: '12px 16px',
       boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+      minWidth: '140px',
     }}>
-      <p style={{ margin: '0 0 8px 0', fontWeight: 600, fontSize: '14px' }}>{label}</p>
+      <p style={{ margin: '0 0 6px 0', fontWeight: 700, fontSize: '14px', color: 'var(--color-text)' }}>{label}</p>
       {payload.map((entry, i) => (
-        <p key={i} style={{ margin: '4px 0', fontSize: '13px', color: entry.color || BYU_BLUE }}>
-          {entry.name || 'Value'}: <strong>{entry.value}</strong>
+        <p key={i} style={{ margin: '2px 0', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+          {entry.name || 'Value'}: <strong style={{ color: 'var(--color-text)' }}>{entry.value}</strong>
         </p>
       ))}
+    </div>
+  )
+}
+
+function AnalyticsSkeleton() {
+  return (
+    <div className="page analytics-page">
+      <div className="skeleton-block analytics-skeleton-header" />
+      <div className="analytics-kpi-grid">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="skeleton-block analytics-skeleton-kpi" />
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+        <div className="skeleton-block analytics-skeleton-panel" />
+        <div className="skeleton-block analytics-skeleton-panel" />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+        <div className="skeleton-block analytics-skeleton-panel" />
+        <div className="skeleton-block analytics-skeleton-panel" />
+      </div>
+      <div className="skeleton-block analytics-skeleton-panel-full" />
     </div>
   )
 }
@@ -131,18 +156,25 @@ function Analytics() {
   const [players, setPlayers] = useState([])
   const [recruits, setRecruits] = useState([])
   const [statusHistories, setStatusHistories] = useState({})
+  const [breakoutPlayers, setBreakoutPlayers] = useState([])
+  const [isBreakoutDemo, setIsBreakoutDemo] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [classYearFilter, setClassYearFilter] = useState('all')
+  const [isExporting, setIsExporting] = useState(false)
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true)
       try {
-        const [playersData, recruitsData] = await Promise.all([
+        const [playersData, recruitsData, breakoutData] = await Promise.all([
           loadPlayers(),
           recruitsApi.getAll().catch(() => []),
+          performancesApi.getBreakoutPlayers().catch(() => ({ breakoutPlayers: [], isDemo: true })),
         ])
         setPlayers(playersData)
         setRecruits(Array.isArray(recruitsData) ? recruitsData : [])
+        setBreakoutPlayers(breakoutData.breakoutPlayers || [])
+        setIsBreakoutDemo(breakoutData.isDemo || false)
 
         // Fetch status history for committed players
         const committedPlayers = playersData.filter(isCommitted)
@@ -167,12 +199,38 @@ function Analytics() {
     fetchData()
   }, [])
 
+  // --- Class Year Filtering ---
+  const availableClassYears = useMemo(() => {
+    const years = new Set()
+    recruits.forEach(r => { if (r.class_year) years.add(String(r.class_year)) })
+    players.forEach(p => { if (p.gradYear) years.add(String(p.gradYear)) })
+    return [...years].sort()
+  }, [recruits, players])
+
+  const filteredRecruits = useMemo(() => {
+    if (classYearFilter === 'all') return recruits
+    return recruits.filter(r => String(r.class_year) === classYearFilter)
+  }, [recruits, classYearFilter])
+
+  const filteredPlayers = useMemo(() => {
+    if (classYearFilter === 'all') return players
+    return players.filter(p => String(p.gradYear) === classYearFilter)
+  }, [players, classYearFilter])
+
+  const filteredBreakoutPlayers = useMemo(() => {
+    if (classYearFilter === 'all') return breakoutPlayers
+    return breakoutPlayers.filter(bp => {
+      const gradYear = bp.player?.gradYear || bp.player?.grad_year || bp.player?.class_year
+      return gradYear && String(gradYear) === classYearFilter
+    })
+  }, [breakoutPlayers, classYearFilter])
+
   // --- Recruit-based analytics ---
 
   // Board Summary: count of recruits per status
   const boardSummary = useMemo(() => {
     const statusMap = {}
-    recruits.forEach((r) => {
+    filteredRecruits.forEach((r) => {
       const status = (r.status || 'UNKNOWN').toUpperCase()
       statusMap[status] = (statusMap[status] || 0) + 1
     })
@@ -180,12 +238,12 @@ function Analytics() {
     return Object.entries(statusMap)
       .map(([status, count]) => ({ status, count }))
       .sort((a, b) => (priority[a.status] || 99) - (priority[b.status] || 99))
-  }, [recruits])
+  }, [filteredRecruits])
 
   // Position Needs: recruit count per position, color-coded by most common status
   const positionNeeds = useMemo(() => {
     const posMap = {}
-    recruits.forEach((r) => {
+    filteredRecruits.forEach((r) => {
       const pos = (r.position || '').toUpperCase()
       if (!pos) return
       if (!posMap[pos]) posMap[pos] = { total: 0, statuses: {} }
@@ -208,13 +266,13 @@ function Analytics() {
           statuses: data.statuses,
         }
       })
-  }, [recruits])
+  }, [filteredRecruits])
 
   // --- Player-based analytics (with demo fallbacks) ---
 
   // 1. Composite Rating by Position for Committed Players (Bar Graph)
   const committedRatingByPositionReal = useMemo(() => {
-    const committedPlayers = players.filter((p) => isCommitted(p) && p.compositeRating != null)
+    const committedPlayers = filteredPlayers.filter((p) => isCommitted(p) && p.compositeRating != null)
     const posMap = {}
 
     committedPlayers.forEach((p) => {
@@ -237,15 +295,17 @@ function Analytics() {
           minRating: Math.min(...ratings),
         }
       })
-  }, [players])
+  }, [filteredPlayers])
 
   const isRatingDemo = committedRatingByPositionReal.length === 0
   const committedRatingByPosition = isRatingDemo ? DEMO_COMMITTED_RATINGS : committedRatingByPositionReal
 
   // 2. Time-to-Commit (Days from offer to commit)
   const timeToCommitReal = useMemo(() => {
+    const filteredPlayerIds = new Set(filteredPlayers.map(p => String(p.id)))
     const days = []
-    Object.entries(statusHistories).forEach(([, history]) => {
+    Object.entries(statusHistories).forEach(([playerId, history]) => {
+      if (!filteredPlayerIds.has(String(playerId))) return
       if (!history || history.length === 0) return
       const sorted = [...history].sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at))
       let offeredDate = null
@@ -287,18 +347,18 @@ function Analytics() {
       median: Math.round(median),
       count: days.length,
     }
-  }, [statusHistories])
+  }, [statusHistories, filteredPlayers])
 
   const isTimeDemo = timeToCommitReal.count === 0
   const timeToCommit = isTimeDemo ? DEMO_TIME_TO_COMMIT : timeToCommitReal
 
   // 3. Commit-to-Offer Rate
   const commitToOfferReal = useMemo(() => {
-    const offered = players.filter(isOffered).length
-    const committed = players.filter(isCommitted).length
+    const offered = filteredPlayers.filter(isOffered).length
+    const committed = filteredPlayers.filter(isCommitted).length
     const rate = offered > 0 ? parseFloat(((committed / offered) * 100).toFixed(1)) : 0
     return { offered, committed, rate, pending: offered - committed }
-  }, [players])
+  }, [filteredPlayers])
 
   const isOfferDemo = commitToOfferReal.offered === 0
   const commitToOffer = isOfferDemo ? DEMO_COMMIT_TO_OFFER : commitToOfferReal
@@ -313,7 +373,7 @@ function Analytics() {
   const topPlayersByPositionReal = useMemo(() => {
     const posMap = {}
 
-    players.forEach((p) => {
+    filteredPlayers.forEach((p) => {
       const rating = p.compositeRating || p.composite_rating
       if (rating == null) return
       const pos = getPosition(p)
@@ -335,29 +395,42 @@ function Analytics() {
     })
 
     return posMap
-  }, [players])
+  }, [filteredPlayers])
 
   const isTopPlayersDemo = Object.keys(topPlayersByPositionReal).length === 0
   const topPlayersByPosition = isTopPlayersDemo ? DEMO_TOP_PLAYERS : topPlayersByPositionReal
 
   // KPI summary stats
   const kpiStats = useMemo(() => {
-    const totalRecruits = recruits.length
-    const committed = recruits.filter(r => {
+    const totalRecruits = filteredRecruits.length
+    const committed = filteredRecruits.filter(r => {
       const s = (r.status || '').toUpperCase()
       return s === 'COMMITTED' || s === 'SIGNED'
     }).length
-    const offered = recruits.filter(r => (r.status || '').toUpperCase() === 'OFFERED').length
+    const offered = filteredRecruits.filter(r => (r.status || '').toUpperCase() === 'OFFERED').length
     const commitRate = totalRecruits > 0 ? parseFloat(((committed / totalRecruits) * 100).toFixed(1)) : 0
     return { totalRecruits, committed, offered, commitRate }
-  }, [recruits])
+  }, [filteredRecruits])
 
   if (loading) {
-    return (
-      <div className="page">
-        <p>Loading analytics...</p>
-      </div>
-    )
+    return <AnalyticsSkeleton />
+  }
+
+  const handleExportPDF = async () => {
+    setIsExporting(true)
+    try {
+      await exportAnalyticsDashboardPDF({
+        kpiStats,
+        boardSummary,
+        committedRatingByPosition,
+        topPlayersByPosition,
+        classYearFilter,
+      })
+    } catch (err) {
+      console.error('PDF export failed:', err)
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   // Progress bar position for time-to-commit
@@ -367,26 +440,53 @@ function Analytics() {
   return (
     <div className="page analytics-page">
       {/* Dashboard Header */}
-      <header style={{
-        borderLeft: `4px solid ${BYU_BLUE}`,
-        paddingLeft: '16px',
-        marginBottom: '24px',
-      }}>
-        <h2 style={{ margin: '0 0 4px 0', fontSize: '24px', fontWeight: 700, color: BYU_BLUE }}>
-          Analytics Dashboard
-        </h2>
-        <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
-          Recruiting insights and performance metrics
-        </p>
-      </header>
+      <div className="analytics-dashboard-header">
+        <header style={{
+          borderLeft: `4px solid ${BYU_BLUE}`,
+          paddingLeft: '16px',
+          marginBottom: '24px',
+        }}>
+          <h2 style={{ margin: '0 0 4px 0', fontSize: '24px', fontWeight: 700, color: BYU_BLUE }}>
+            Analytics Dashboard
+          </h2>
+          <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
+            Recruiting insights and performance metrics
+          </p>
+        </header>
+        <button
+          className="btn-primary"
+          onClick={handleExportPDF}
+          disabled={isExporting}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          {isExporting ? 'Exporting...' : 'Export PDF'}
+        </button>
+      </div>
+
+      {/* Class Year Filter */}
+      {availableClassYears.length > 0 && (
+        <div className="analytics-filter-bar">
+          <span className="filter-label">Class Year:</span>
+          <button
+            className={`analytics-filter-pill${classYearFilter === 'all' ? ' active' : ''}`}
+            onClick={() => setClassYearFilter('all')}
+          >
+            All
+          </button>
+          {availableClassYears.map(year => (
+            <button
+              key={year}
+              className={`analytics-filter-pill${classYearFilter === year ? ' active' : ''}`}
+              onClick={() => setClassYearFilter(year)}
+            >
+              {year}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* KPI Summary Row */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '16px',
-        marginBottom: '24px',
-      }}>
+      <div className="analytics-kpi-grid">
         {[
           { label: 'Total Recruits', value: kpiStats.totalRecruits, color: BYU_BLUE },
           { label: 'Committed', value: kpiStats.committed, color: '#16a34a' },
@@ -406,6 +506,116 @@ function Analytics() {
         ))}
       </div>
 
+      {/* Breakout Players */}
+      {filteredBreakoutPlayers.length > 0 && (
+        <section className="panel" style={{
+          padding: '24px',
+          marginBottom: '24px',
+          borderRadius: '12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+        }}>
+          <div style={{ marginBottom: '16px' }}>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 600, color: BYU_BLUE }}>
+              Breakout Players
+            </h3>
+            <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
+              Players whose latest game significantly exceeded their season average
+              {isBreakoutDemo && <span style={{ marginLeft: '8px', fontStyle: 'italic', color: '#f59e0b' }}>(Sample Data)</span>}
+            </p>
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+            gap: '16px',
+          }}>
+            {filteredBreakoutPlayers.map((bp) => (
+              <div key={bp.player.id} style={{
+                padding: '16px',
+                background: 'var(--color-bg-secondary)',
+                borderRadius: '12px',
+                border: '1px solid var(--color-border)',
+                position: 'relative',
+                overflow: 'hidden',
+              }}>
+                {/* Breakout score badge */}
+                <div style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  background: bp.breakoutScore >= 2.5 ? '#16a34a' : '#f59e0b',
+                  color: 'white',
+                  borderRadius: '8px',
+                  padding: '4px 10px',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                }}>
+                  {bp.breakoutScore.toFixed(1)}x
+                </div>
+
+                {/* Player info */}
+                <div style={{ marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <Link to={`/player/${bp.player.id}/stats`} className="analytics-player-link" style={{ fontSize: '15px', fontWeight: 600 }}>{bp.player.name}</Link>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: 'white',
+                      background: BYU_BLUE,
+                      padding: '1px 8px',
+                      borderRadius: '4px',
+                    }}>
+                      {bp.player.position}
+                    </span>
+                    {bp.grade && (
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: BYU_BLUE,
+                        background: BYU_BLUE_TINT,
+                        padding: '1px 8px',
+                        borderRadius: '4px',
+                        border: `1px solid ${BYU_BLUE}`,
+                      }}>
+                        {bp.grade}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                    {bp.player.school} &middot; vs. {bp.game.opponent} &middot; {new Date(bp.game.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </div>
+                </div>
+
+                {/* Key stat comparisons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {bp.keyStats.map((stat) => (
+                    <div key={stat.statType} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '13px',
+                      padding: '4px 8px',
+                      background: 'var(--color-bg-primary, #f9fafb)',
+                      borderRadius: '6px',
+                    }}>
+                      <span style={{ color: '#6b7280', fontWeight: 500 }}>{stat.statType}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontWeight: 700, color: '#16a34a' }}>
+                          {stat.gameValue}{stat.unit ? ` ${stat.unit}` : ''}
+                        </span>
+                        <span style={{ color: '#16a34a', fontSize: '11px' }}>&#9650;</span>
+                        <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                          (avg {stat.seasonAvg}{stat.unit ? ` ${stat.unit}` : ''})
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Board Summary + Time-to-Commit side by side */}
       <div style={{
         display: 'grid',
@@ -424,7 +634,7 @@ function Analytics() {
               Recruiting Board Summary
             </h3>
             <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
-              Recruit count by status &middot; {recruits.length} total
+              Recruit count by status &middot; {filteredRecruits.length} total
             </p>
           </div>
           {boardSummary.length === 0 ? (
@@ -593,7 +803,7 @@ function Analytics() {
                 y={COMPOSITE_GOAL}
                 stroke="#dc2626"
                 strokeDasharray="6 4"
-                label={{ value: `Goal: ${COMPOSITE_GOAL}`, position: 'right', fill: '#dc2626', fontSize: 11 }}
+                label={{ value: `Goal: ${COMPOSITE_GOAL}`, position: 'insideTopRight', fill: '#dc2626', fontSize: 11, fontWeight: 600, dy: -14 }}
               />
               <Bar dataKey="avgRating" name="Avg Rating" radius={[6, 6, 0, 0]} fill="#4169E1" />
             </BarChart>
@@ -745,10 +955,14 @@ function Analytics() {
                     </span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    {Object.entries(pos.statuses).map(([status, count]) => (
-                      <div key={status} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                        <span style={{ color: getStatusColor(status) }}>{status}</span>
-                        <span style={{ fontWeight: 600 }}>{count}</span>
+                    {[
+                      { label: 'Committed', value: (pos.statuses['COMMITTED'] || 0) + (pos.statuses['SIGNED'] || 0), color: '#16a34a' },
+                      { label: 'Offered', value: pos.statuses['OFFERED'] || 0, color: '#2563eb' },
+                      { label: 'Goal', value: pos.count, color: BYU_BLUE },
+                    ].map(row => (
+                      <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                        <span style={{ color: row.color, fontWeight: 500 }}>{row.label}</span>
+                        <span style={{ fontWeight: 600 }}>{row.value}</span>
                       </div>
                     ))}
                   </div>
@@ -806,7 +1020,9 @@ function Analytics() {
                   }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '13px', fontWeight: idx === 0 ? 600 : 500, marginBottom: '2px' }}>
-                        {player.name}
+                        <Link to={`/player/${player.id}/stats`} className="analytics-player-link">
+                          {player.name}
+                        </Link>
                       </div>
                       <div style={{ fontSize: '11px', color: '#6b7280' }}>
                         {player.school || 'No school'}

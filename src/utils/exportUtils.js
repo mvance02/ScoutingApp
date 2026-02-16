@@ -1077,6 +1077,134 @@ export async function exportRecruitsReportPDFByCoach(recruits, notes, weekStart,
   return outputs
 }
 
+/**
+ * Export Analytics Dashboard to PDF
+ */
+export async function exportAnalyticsDashboardPDF({ kpiStats, boardSummary, committedRatingByPosition, topPlayersByPosition, classYearFilter }) {
+  const doc = new jsPDF('portrait')
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const headerY = await addBanner(doc, pageWidth)
+
+  doc.setFontSize(18)
+  doc.setFont('helvetica', 'bold')
+  doc.text('BYU Football - Analytics Dashboard', pageWidth / 2, headerY, { align: 'center' })
+
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'normal')
+  const filterLabel = classYearFilter === 'all' ? 'All Class Years' : `Class of ${classYearFilter}`
+  doc.text(`${filterLabel} | Generated ${new Date().toLocaleDateString()}`, pageWidth / 2, headerY + 8, { align: 'center' })
+
+  doc.setDrawColor(200)
+  doc.line(15, headerY + 13, pageWidth - 15, headerY + 13)
+
+  // KPI Table
+  let yPos = headerY + 20
+  doc.setFontSize(13)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Key Metrics', 15, yPos)
+  yPos += 4
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Total Recruits', 'Committed', 'Offered', 'Commit Rate']],
+    body: [[kpiStats.totalRecruits, kpiStats.committed, kpiStats.offered, `${kpiStats.commitRate}%`]],
+    theme: 'grid',
+    headStyles: { fillColor: [0, 46, 93], textColor: 255, fontSize: 9 },
+    styles: { fontSize: 10, cellPadding: 4, halign: 'center' },
+    margin: { left: 15, right: 15 },
+  })
+
+  yPos = (doc.lastAutoTable?.finalY || yPos) + 10
+
+  // Board Summary and Rating by Position side-by-side
+  const halfWidth = (pageWidth - 45) / 2
+
+  // Board Summary (left)
+  if (boardSummary.length > 0) {
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Board Summary', 15, yPos)
+
+    autoTable(doc, {
+      startY: yPos + 4,
+      head: [['Status', 'Count']],
+      body: boardSummary.map(b => [b.status, b.count]),
+      theme: 'grid',
+      headStyles: { fillColor: [0, 46, 93], textColor: 255, fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 3 },
+      margin: { left: 15, right: pageWidth - 15 - halfWidth },
+    })
+
+    const boardEndY = doc.lastAutoTable?.finalY || yPos
+
+    // Rating by Position (right)
+    if (committedRatingByPosition.length > 0) {
+      doc.setFontSize(12)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Avg Rating by Position', 15 + halfWidth + 15, yPos)
+
+      autoTable(doc, {
+        startY: yPos + 4,
+        head: [['Pos', 'Avg', 'Count']],
+        body: committedRatingByPosition.map(r => [r.position, r.avgRating.toFixed(2), r.count]),
+        theme: 'grid',
+        headStyles: { fillColor: [0, 46, 93], textColor: 255, fontSize: 8 },
+        styles: { fontSize: 8, cellPadding: 3 },
+        margin: { left: 15 + halfWidth + 15, right: 15 },
+      })
+
+      yPos = Math.max(boardEndY, doc.lastAutoTable?.finalY || yPos) + 10
+    } else {
+      yPos = boardEndY + 10
+    }
+  }
+
+  // Top Players by Position
+  const positionOrder = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'DE', 'LB', 'C', 'S', 'K', 'P']
+  const topPlayersData = []
+  positionOrder.forEach(pos => {
+    const players = topPlayersByPosition[pos]
+    if (!players?.length) return
+    players.forEach((p, i) => {
+      topPlayersData.push([pos, i + 1, p.name, p.school || '', p.rating.toFixed(2), p.statuses.join(', ')])
+    })
+  })
+
+  if (topPlayersData.length > 0) {
+    if (yPos > 240) {
+      doc.addPage()
+      yPos = 20
+    }
+
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Top Players by Position', 15, yPos)
+
+    autoTable(doc, {
+      startY: yPos + 4,
+      head: [['Pos', '#', 'Name', 'School', 'Rating', 'Status']],
+      body: topPlayersData,
+      theme: 'grid',
+      headStyles: { fillColor: [0, 46, 93], textColor: 255, fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 3 },
+      margin: { left: 15, right: 15 },
+    })
+  }
+
+  // Footer
+  const pageCount = doc.internal.getNumberOfPages()
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    const pageHeight = doc.internal.pageSize.getHeight()
+    doc.setFontSize(8)
+    doc.setTextColor(128)
+    doc.text(`BYU Football Scouting | Analytics Dashboard | Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 8, { align: 'center' })
+    doc.setTextColor(0)
+  }
+
+  doc.save(`analytics_dashboard_${new Date().toISOString().split('T')[0]}.pdf`)
+}
+
 // Helper functions
 function countStatType(stats, types) {
   return stats.filter((s) => {

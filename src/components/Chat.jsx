@@ -33,7 +33,10 @@ function Chat({ roomType, entityId = null, title = null }) {
     chatRoomId: room?.id,
     onChatMessage: (data) => {
       if (data.message.room_id === room?.id) {
-        setMessages((prev) => [...prev, data.message])
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === data.message.id)) return prev
+          return [...prev, data.message]
+        })
         scrollToBottom()
       }
     },

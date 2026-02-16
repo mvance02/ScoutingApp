@@ -8,6 +8,11 @@ const STORAGE_KEYS = {
 }
 
 let apiAvailable = null
+let usingFallback = false
+
+export function isUsingFallback() {
+  return usingFallback
+}
 
 // Check API availability (cached)
 async function isApiAvailable() {
@@ -158,10 +163,14 @@ export async function loadPlayers() {
   if (await isApiAvailable()) {
     try {
       const players = await playersApi.getAll()
+      usingFallback = false
       return players.map(apiPlayerToApp)
     } catch (err) {
       console.error('API error, falling back to localStorage:', err)
+      usingFallback = true
     }
+  } else {
+    usingFallback = true
   }
   return loadFromStorage('PLAYERS')
 }

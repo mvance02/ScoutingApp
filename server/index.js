@@ -84,7 +84,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-// Routes
+// Auth routes (no requireAuth — must be before the catch-all /api route)
 app.use('/api/auth', authRouter)
 app.use('/api/players', requireAuth, playersRouter)
 app.use('/api/games', requireAuth, gamesRouter)
@@ -104,7 +104,7 @@ app.use('/api/player-comments', requireAuth, playerCommentsRouter)
 app.use('/api/visits', requireAuth, visitsRouter)
 app.use('/api/activity', requireAuth, activityRouter)
 app.use('/api/chat', requireAuth, chatRouter)
-app.use('/api', requireAuth, backupRouter)
+app.use('/api', backupRouter)
 
 // Error handling
 app.use((err, req, res, next) => {

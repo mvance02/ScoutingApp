@@ -16,6 +16,10 @@ function getAuthToken() {
 }
 
 async function request(endpoint, options = {}) {
+  if (endpoint == null) {
+    throw new ApiError('API endpoint is required', 0)
+  }
+
   const url = `${API_URL}${endpoint}`
   const token = getAuthToken()
 
@@ -35,6 +39,9 @@ async function request(endpoint, options = {}) {
     const response = await fetch(url, config)
 
     if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('auth_token')
+      }
       const error = await response.json().catch(() => ({ error: 'Request failed' }))
       throw new ApiError(error.error || 'Request failed', response.status)
     }
@@ -66,6 +73,9 @@ export const authApi = {
   login: (data) => request('/auth/login', { method: 'POST', body: data }),
   me: () => request('/auth/me'),
   users: () => request('/auth/users'),
+  forgotPassword: (email) => request('/auth/forgot-password', { method: 'POST', body: { email } }),
+  verifyResetToken: (token) => request(`/auth/verify-reset-token/${token}`),
+  resetPassword: (token, password) => request('/auth/reset-password', { method: 'POST', body: { token, password } }),
 }
 
 // Games API

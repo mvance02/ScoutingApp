@@ -8,9 +8,9 @@ const router = Router()
 router.get('/', async (req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM notifications 
-       WHERE user_id = $1 
-       ORDER BY created_at DESC 
+      `SELECT * FROM notifications
+       WHERE user_id = $1
+       ORDER BY created_at DESC
        LIMIT 100`,
       [req.user.id]
     )
@@ -24,11 +24,25 @@ router.get('/', async (req, res, next) => {
 router.get('/unread-count', async (req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT COUNT(*)::int as count FROM notifications 
+      `SELECT COUNT(*)::int as count FROM notifications
        WHERE user_id = $1 AND read = false`,
       [req.user.id]
     )
     res.json({ count: result.rows[0].count })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// PUT mark all as read (must be before /:id/read to avoid matching "mark-all-read" as :id)
+router.put('/mark-all-read', async (req, res, next) => {
+  try {
+    await pool.query(
+      `UPDATE notifications SET read = true
+       WHERE user_id = $1 AND read = false`,
+      [req.user.id]
+    )
+    res.json({ message: 'All notifications marked as read' })
   } catch (err) {
     next(err)
   }
@@ -39,8 +53,8 @@ router.put('/:id/read', async (req, res, next) => {
   try {
     const { id } = req.params
     const result = await pool.query(
-      `UPDATE notifications SET read = true 
-       WHERE id = $1 AND user_id = $2 
+      `UPDATE notifications SET read = true
+       WHERE id = $1 AND user_id = $2
        RETURNING *`,
       [id, req.user.id]
     )
@@ -53,27 +67,13 @@ router.put('/:id/read', async (req, res, next) => {
   }
 })
 
-// PUT mark all as read
-router.put('/mark-all-read', async (req, res, next) => {
-  try {
-    await pool.query(
-      `UPDATE notifications SET read = true 
-       WHERE user_id = $1 AND read = false`,
-      [req.user.id]
-    )
-    res.json({ message: 'All notifications marked as read' })
-  } catch (err) {
-    next(err)
-  }
-})
-
 // DELETE notification
 router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params
     const result = await pool.query(
-      `DELETE FROM notifications 
-       WHERE id = $1 AND user_id = $2 
+      `DELETE FROM notifications
+       WHERE id = $1 AND user_id = $2
        RETURNING *`,
       [id, req.user.id]
     )

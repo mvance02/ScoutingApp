@@ -15,7 +15,7 @@ function ForgotPassword() {
     setLoading(true)
 
     try {
-      await authApi.forgotPassword({ email: email.trim() })
+      await authApi.forgotPassword(email.trim())
       setSubmitted(true)
     } catch (err) {
       setError(err?.message || 'Failed to send reset email')

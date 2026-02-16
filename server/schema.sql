@@ -10,6 +10,7 @@ CREATE TABLE users (
   role VARCHAR(20) DEFAULT 'scout',
   reset_token VARCHAR(64),
   reset_token_expires TIMESTAMP,
+  keyboard_shortcuts JSONB,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -26,6 +27,13 @@ CREATE TABLE players (
   notes TEXT,
   flagged BOOLEAN DEFAULT true,
   cut_up_completed BOOLEAN DEFAULT false,
+  recruiting_statuses TEXT[],
+  status_updated_at TIMESTAMP,
+  status_notes TEXT,
+  committed_school VARCHAR(255),
+  committed_date DATE,
+  composite_rating DECIMAL(4,2),
+  profile_picture_url TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -75,6 +83,9 @@ CREATE TABLE game_player_grades (
   next_opponent VARCHAR(255),
   next_game_date VARCHAR(20),
   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  verified BOOLEAN DEFAULT false,
+  verified_by INTEGER REFERENCES users(id),
+  verified_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (game_id, player_id)
@@ -106,7 +117,6 @@ CREATE TABLE recruits (
   committed_school VARCHAR(255),
   committed_date DATE,
   assigned_coach VARCHAR(255),
-  player_id INTEGER REFERENCES players(id) ON DELETE SET NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -164,3 +174,151 @@ CREATE INDEX idx_recruits_status ON recruits(status);
 CREATE UNIQUE INDEX idx_recruits_player_id ON recruits(player_id) WHERE player_id IS NOT NULL;
 CREATE INDEX idx_recruit_reports_week ON recruit_weekly_reports(week_start_date);
 CREATE INDEX idx_recruit_notes_week ON recruit_notes(week_start_date);
+
+-- Player Status History table
+CREATE TABLE player_status_history (
+  id SERIAL PRIMARY KEY,
+  player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
+  old_statuses TEXT[],
+  new_statuses TEXT[],
+  notes TEXT,
+  changed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Scout Assignments table
+CREATE TABLE scout_assignments (
+  id SERIAL PRIMARY KEY,
+  scout_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
+  position_group VARCHAR(50),
+  notes TEXT,
+  assigned_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Audit Log table
+CREATE TABLE audit_log (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  action VARCHAR(100) NOT NULL,
+  entity_type VARCHAR(50),
+  entity_id INTEGER,
+  details JSONB,
+  ip_address VARCHAR(45),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Notifications table
+CREATE TABLE notifications (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  type VARCHAR(50) NOT NULL,
+  title VARCHAR(255),
+  message TEXT,
+  link VARCHAR(500),
+  read BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Player Comments table
+CREATE TABLE player_comments (
+  id SERIAL PRIMARY KEY,
+  player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  comment TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Player Visits table
+CREATE TABLE player_visits (
+  id SERIAL PRIMARY KEY,
+  player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
+  visit_date DATE NOT NULL,
+  visit_type VARCHAR(50),
+  location VARCHAR(255),
+  notes TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Composite Rating History table
+CREATE TABLE composite_rating_history (
+  id SERIAL PRIMARY KEY,
+  player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
+  old_rating DECIMAL(4,2),
+  new_rating DECIMAL(4,2),
+  changed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Activity Feed table
+CREATE TABLE activity_feed (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  action VARCHAR(100) NOT NULL,
+  entity_type VARCHAR(50),
+  entity_id INTEGER,
+  entity_name VARCHAR(255),
+  details JSONB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Comment Mentions table
+CREATE TABLE comment_mentions (
+  id SERIAL PRIMARY KEY,
+  comment_id INTEGER REFERENCES player_comments(id) ON DELETE CASCADE,
+  mentioned_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Chat Rooms table
+CREATE TABLE chat_rooms (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255),
+  type VARCHAR(50) NOT NULL,
+  entity_id INTEGER,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Chat Messages table
+CREATE TABLE chat_messages (
+  id SERIAL PRIMARY KEY,
+  room_id INTEGER REFERENCES chat_rooms(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Message Reads table
+CREATE TABLE message_reads (
+  id SERIAL PRIMARY KEY,
+  room_id INTEGER REFERENCES chat_rooms(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  last_read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (room_id, user_id)
+);
+
+-- Indexes for new tables
+CREATE INDEX idx_player_status_history_player ON player_status_history(player_id);
+CREATE INDEX idx_scout_assignments_scout ON scout_assignments(scout_id);
+CREATE INDEX idx_scout_assignments_player ON scout_assignments(player_id);
+CREATE INDEX idx_audit_log_user ON audit_log(user_id);
+CREATE INDEX idx_audit_log_action ON audit_log(action);
+CREATE INDEX idx_audit_log_created ON audit_log(created_at);
+CREATE INDEX idx_notifications_user ON notifications(user_id);
+CREATE INDEX idx_notifications_read ON notifications(user_id, read);
+CREATE INDEX idx_player_comments_player ON player_comments(player_id);
+CREATE INDEX idx_player_visits_player ON player_visits(player_id);
+CREATE INDEX idx_player_visits_date ON player_visits(visit_date);
+CREATE INDEX idx_composite_rating_history_player ON composite_rating_history(player_id);
+CREATE INDEX idx_activity_feed_user ON activity_feed(user_id);
+CREATE INDEX idx_activity_feed_created ON activity_feed(created_at);
+CREATE INDEX idx_comment_mentions_user ON comment_mentions(mentioned_user_id);
+CREATE INDEX idx_chat_rooms_type ON chat_rooms(type);
+CREATE INDEX idx_chat_messages_room ON chat_messages(room_id);
+CREATE INDEX idx_chat_messages_created ON chat_messages(created_at);
+CREATE INDEX idx_message_reads_room_user ON message_reads(room_id, user_id);

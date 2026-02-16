@@ -45,7 +45,7 @@ function ResetPassword() {
     setLoading(true)
 
     try {
-      await authApi.resetPassword({ token, password })
+      await authApi.resetPassword(token, password)
       setSuccess(true)
     } catch (err) {
       setError(err?.message || 'Failed to reset password')

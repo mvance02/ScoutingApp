@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import crypto from 'crypto'
 import pool from '../db.js'
-import { requireAdmin } from '../middleware/auth.js'
+import { requireAuth, requireAdmin } from '../middleware/auth.js'
 import { validate, restoreBackupSchema } from '../middleware/validate.js'
 
 const router = Router()
@@ -66,7 +66,7 @@ function decryptBackup(encryptedData) {
 }
 
 // GET backup - export all data as JSON (encrypted if key is set)
-router.get('/backup', requireAdmin, async (req, res, next) => {
+router.get('/backup', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const players = await pool.query('SELECT * FROM players ORDER BY id')
     const games = await pool.query('SELECT * FROM games ORDER BY id')
@@ -92,7 +92,7 @@ router.get('/backup', requireAdmin, async (req, res, next) => {
 })
 
 // POST restore - import JSON data (handles both encrypted and unencrypted)
-router.post('/restore', requireAdmin, async (req, res, next) => {
+router.post('/restore', requireAuth, requireAdmin, async (req, res, next) => {
   const client = await pool.connect()
 
   try {

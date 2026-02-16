@@ -4,7 +4,7 @@ import { Home, Users, Plus, Moon, Sun, HelpCircle, FileText, UserCheck, Bell, Cl
 import Dashboard from './components/Dashboard'
 import GameReview from './components/GameReview'
 import PlayerManagement from './components/PlayerManagement'
-import { createGame } from './utils/storage'
+import { createGame, isUsingFallback } from './utils/storage'
 import PlayerStats from './components/PlayerStats'
 import Login from './components/Login'
 import ForgotPassword from './components/ForgotPassword'
@@ -23,6 +23,7 @@ function App() {
   const [authChecked, setAuthChecked] = useState(false)
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [showFallbackWarning, setShowFallbackWarning] = useState(false)
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme')
     return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)
@@ -45,6 +46,14 @@ function App() {
         localStorage.removeItem('auth_token')
       })
       .finally(() => setAuthChecked(true))
+  }, [])
+
+  // Check if using localStorage fallback periodically
+  useEffect(() => {
+    const check = () => setShowFallbackWarning(isUsingFallback())
+    check()
+    const interval = setInterval(check, 10000)
+    return () => clearInterval(interval)
   }, [])
 
   // Global keyboard shortcut for ? to open shortcuts modal
@@ -89,6 +98,18 @@ function App() {
   return (
     <Router>
       <div className="app">
+        {showFallbackWarning && (
+          <div style={{
+            background: '#f59e0b',
+            color: '#000',
+            textAlign: 'center',
+            padding: '6px 12px',
+            fontSize: '14px',
+            fontWeight: 500,
+          }}>
+            Server unavailable — showing cached data
+          </div>
+        )}
         <NavBar
           user={user}
           darkMode={darkMode}

@@ -17,6 +17,7 @@ import ScoutAssignments from './components/ScoutAssignments'
 import RecruitsReport from './components/RecruitsReport'
 import Notifications from './components/Notifications'
 import Analytics from './components/Analytics'
+import PlayerProfile from './components/PlayerProfile'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -126,6 +127,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/review/:gameId?" element={<GameReview />} />
             <Route path="/players" element={<PlayerManagement />} />
+            <Route path="/player/:playerId" element={<PlayerProfile />} />
             <Route path="/player/:playerId/stats" element={<PlayerStats />} />
             <Route path="/recruits-report" element={<RecruitsReport />} />
             <Route path="/analytics" element={<Analytics />} />

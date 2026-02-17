@@ -59,7 +59,7 @@ router.get('/:gameId', async (req, res, next) => {
        LEFT JOIN players p ON s.player_id = p.id
        LEFT JOIN users u ON s.created_by = u.id
        WHERE s.game_id = $1
-       ORDER BY s.created_at ASC`,
+       ORDER BY s.created_at DESC`,
       [gameId]
     )
     res.json(result.rows)

@@ -94,7 +94,7 @@ export const updateStatSchema = z.object({
 
 // Notes schemas
 export const createNoteSchema = z.object({
-  game_id: z.number().int().positive('Game ID is required'),
+  game_id: z.coerce.number().int().positive('Game ID is required'),
   timestamp: z.string().max(20).optional().nullable(),
   period: z.string().max(20).optional().nullable(),
   note: z.string().min(1, 'Note content is required').max(10000),

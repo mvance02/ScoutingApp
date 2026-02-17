@@ -19,7 +19,6 @@ import { gradesApi, notesApi, authApi, statsApi } from '../utils/api'
 import { useUndoRedo } from '../hooks/useUndoRedo'
 import { useWebSocket } from '../hooks/useWebSocket'
 import EmptyState from './EmptyState'
-import Chat from './Chat'
 
 const STAT_TYPES = [
   'Rush',
@@ -168,8 +167,28 @@ function GameReview() {
     gameId,
     onStatUpdate: async (data) => {
       if (data.type === 'created') {
-        // Add new stat
-        setGameStats((prev) => [...prev, data.stat])
+        // Skip if this stat already exists (duplicate from own broadcast)
+        setGameStats((prev) => {
+          const realId = data.stat.id
+          // Already have this exact ID
+          if (prev.some((s) => s.id === realId)) return prev
+          // Check if we have a temp entry that matches (same stat we just created locally)
+          const tempIdx = prev.findIndex(
+            (s) =>
+              String(s.id).startsWith('temp-') &&
+              String(s.playerId || s.player_id) === String(data.stat.player_id) &&
+              s.statType === (data.stat.statType || data.stat.stat_type) &&
+              String(s.gameId || s.game_id) === String(data.stat.game_id)
+          )
+          if (tempIdx !== -1) {
+            // Replace temp entry with real one (keep position)
+            const next = [...prev]
+            next[tempIdx] = { ...next[tempIdx], id: realId }
+            return next
+          }
+          // Truly new stat from another user — add at the top
+          return [data.stat, ...prev]
+        })
       } else if (data.type === 'updated') {
         // Update existing stat
         setGameStats((prev) => prev.map((s) => (s.id === data.stat.id ? data.stat : s)))
@@ -1691,15 +1710,6 @@ function GameReview() {
             ))}
           </ul>
         )}
-      </section>
-
-      {/* Game Chat */}
-      <section className="panel" style={{ marginTop: '24px' }}>
-        <Chat 
-          roomType="game" 
-          entityId={gameId} 
-          title={`Game Chat: ${game?.opponent || 'Game'}`}
-        />
       </section>
 
       <section className="panel save-finish-panel">

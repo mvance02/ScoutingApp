@@ -2100,3 +2100,350 @@ body {
   color: #2563eb;
   text-decoration: underline;
 }
+
+/* ===== Player Profile ===== */
+.profile-hero {
+  background: linear-gradient(135deg, #002E5D 0%, #001a3a 100%);
+  padding: 32px 24px;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.profile-hero-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.profile-hero-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.profile-hero-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-hero-avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.profile-hero-avatar-placeholder img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.profile-hero-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-hero-name {
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.profile-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  color: #cbd5e1;
+  font-size: 14px;
+}
+
+.profile-hero-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.profile-hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.profile-rating-badge {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: var(--radius-full);
+  background: #f59e0b;
+  color: #000;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.profile-status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.profile-hero-committed {
+  margin-top: 8px;
+  color: #94a3b8;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.profile-hero-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-self: flex-start;
+}
+
+.profile-hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.profile-hero-btn:hover {
+  background: rgba(255,255,255,0.25);
+}
+
+/* Section Nav */
+.profile-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  gap: 6px;
+  padding: 12px 24px;
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.profile-nav-pill {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.profile-nav-pill:hover {
+  background: var(--color-bg-muted);
+}
+
+.profile-nav-pill.active {
+  background: #002E5D;
+  color: #fff;
+  border-color: #002E5D;
+}
+
+/* Profile Sections */
+.profile-section {
+  margin-top: 28px;
+  padding: 24px;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  scroll-margin-top: 60px;
+}
+
+.profile-section-header {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  color: var(--color-text);
+}
+
+/* Stats Grid */
+.profile-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.profile-stat-card {
+  text-align: center;
+  padding: 16px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+}
+
+.profile-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #002E5D;
+  line-height: 1.1;
+}
+
+.profile-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* Grade Badges */
+.grade-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.grade-badge.grade-a { background: #dcfce7; color: #166534; }
+.grade-badge.grade-b { background: #dbeafe; color: #1e40af; }
+.grade-badge.grade-c { background: #fef3c7; color: #92400e; }
+.grade-badge.grade-d { background: #fee2e2; color: #991b1b; }
+
+/* Grades Table */
+.profile-grades-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.profile-grades-table th {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--color-border);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.profile-grades-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.profile-grades-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Status Timeline */
+.status-timeline {
+  position: relative;
+  padding-left: 24px;
+}
+
+.status-timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--color-border);
+}
+
+.timeline-item {
+  position: relative;
+  padding-bottom: 20px;
+}
+
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-dot {
+  position: absolute;
+  left: -20px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #002E5D;
+  border: 2px solid var(--color-bg-card);
+}
+
+.timeline-content {
+  padding-left: 4px;
+}
+
+.timeline-date {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.timeline-author {
+  font-style: italic;
+}
+
+.timeline-change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.timeline-notes {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--color-text-subtle);
+  font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .profile-hero-inner { flex-direction: column; align-items: center; text-align: center; }
+  .profile-hero-meta { justify-content: center; }
+  .profile-hero-badges { justify-content: center; }
+  .profile-hero-actions { justify-content: center; }
+  .profile-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .profile-section { margin-top: 16px; padding: 16px; }
+}
+
+/* Dark mode overrides */
+[data-theme="dark"] .profile-stat-value { color: #93c5fd; }
+[data-theme="dark"] .grade-badge.grade-a { background: #166534; color: #dcfce7; }
+[data-theme="dark"] .grade-badge.grade-b { background: #1e40af; color: #dbeafe; }
+[data-theme="dark"] .grade-badge.grade-c { background: #92400e; color: #fef3c7; }
+[data-theme="dark"] .grade-badge.grade-d { background: #991b1b; color: #fee2e2; }
+[data-theme="dark"] .profile-nav-pill.active { background: #1e3a5f; border-color: #1e3a5f; }
+[data-theme="dark"] .timeline-dot { border-color: var(--color-bg-card); background: #93c5fd; }

@@ -4,6 +4,25 @@ import { validate, upsertGradeSchema } from '../middleware/validate.js'
 
 const router = Router()
 
+// GET grades for a player (across all games)
+router.get('/player/:playerId', async (req, res, next) => {
+  try {
+    const { playerId } = req.params
+    const result = await pool.query(
+      `SELECT g.*, gm.opponent, gm.date as game_date, u.name as graded_by_name
+       FROM game_player_grades g
+       LEFT JOIN games gm ON g.game_id = gm.id
+       LEFT JOIN users u ON g.created_by = u.id
+       WHERE g.player_id = $1
+       ORDER BY gm.date DESC NULLS LAST`,
+      [playerId]
+    )
+    res.json(result.rows)
+  } catch (err) {
+    next(err)
+  }
+})
+
 // GET grades for a game
 router.get('/:gameId', async (req, res, next) => {
   try {

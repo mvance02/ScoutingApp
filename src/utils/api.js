@@ -101,6 +101,7 @@ export const statsApi = {
 // Grades API
 export const gradesApi = {
   getForGame: (gameId) => request(`/grades/${gameId}`),
+  getForPlayer: (playerId) => request(`/grades/player/${playerId}`),
   upsert: (gameId, playerId, data) => request(`/grades/${gameId}/${playerId}`, { method: 'PUT', body: data }),
   delete: (gameId, playerId) => request(`/grades/${gameId}/${playerId}`, { method: 'DELETE' }),
 }

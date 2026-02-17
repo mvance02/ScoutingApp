@@ -903,7 +903,7 @@ function PlayerManagement() {
                         <PlayerAvatar name={player.name} url={player.profilePictureUrl} size={40} />
                         <div>
                         <strong style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          {player.name}
+                          <Link to={`/player/${player.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{player.name}</Link>
                           {player.compositeRating != null && !isNaN(parseFloat(player.compositeRating)) && (
                             <span
                               style={{

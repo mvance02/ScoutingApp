@@ -889,89 +889,61 @@ function Analytics() {
       </div>
 
       {/* Position Needs */}
-      <section className="panel" style={{
-        padding: '24px',
-        marginBottom: '24px',
-        borderRadius: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-      }}>
-        <div style={{ marginBottom: '16px' }}>
-          <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 600, color: BYU_BLUE }}>
-            Position Needs
-          </h3>
-          <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
-            Recruit distribution across positions
-          </p>
-        </div>
-        {positionNeeds.length === 0 ? (
-          <p className="empty-state" style={{ padding: '40px', textAlign: 'center' }}>
-            No recruits with position data yet
-          </p>
-        ) : (
-          <>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={positionNeeds} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
-                <XAxis
-                  dataKey="position"
-                  tick={{ fontSize: 12, fill: '#6b7280' }}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  tick={{ fontSize: 12, fill: '#6b7280' }}
-                  label={{ value: 'Recruits', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#6b7280' } }}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="count" name="Recruits" radius={[8, 8, 0, 0]}>
-                  {positionNeeds.map((entry, index) => {
-                    const shades = [BYU_BLUE, BYU_BLUE_LIGHT, '#3478c6', '#1a4a8a', '#004a9f']
-                    return <Cell key={`pos-${index}`} fill={shades[index % shades.length]} />
-                  })}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-            {/* Position breakdown grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px', marginTop: '16px' }}>
-              {positionNeeds.map((pos) => (
-                <div key={pos.position} style={{
-                  padding: '12px',
-                  background: 'var(--color-bg-secondary)',
-                  borderRadius: '10px',
-                  border: '1px solid var(--color-border)',
+      {positionNeeds.length > 0 && (
+        <section className="panel" style={{
+          padding: '24px',
+          marginBottom: '24px',
+          borderRadius: '12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+        }}>
+          <div style={{ marginBottom: '16px' }}>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 600, color: BYU_BLUE }}>
+              Position Needs
+            </h3>
+            <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
+              Recruiting status by position
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px' }}>
+            {positionNeeds.map((pos) => (
+              <div key={pos.position} style={{
+                padding: '12px',
+                background: 'var(--color-bg-secondary)',
+                borderRadius: '10px',
+                border: '1px solid var(--color-border)',
+              }}>
+                <div style={{
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  marginBottom: '8px',
+                  color: 'white',
+                  background: BYU_BLUE,
+                  display: 'inline-block',
+                  padding: '2px 10px',
+                  borderRadius: '4px',
                 }}>
-                  <div style={{
-                    fontSize: '14px',
-                    fontWeight: 700,
-                    marginBottom: '8px',
-                    color: 'white',
-                    background: BYU_BLUE,
-                    display: 'inline-block',
-                    padding: '2px 10px',
-                    borderRadius: '4px',
-                  }}>
-                    {pos.position}
-                    <span style={{ fontSize: '12px', fontWeight: 400, marginLeft: '6px', opacity: 0.8 }}>
-                      ({pos.count})
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    {[
-                      { label: 'Committed', value: (pos.statuses['COMMITTED'] || 0) + (pos.statuses['SIGNED'] || 0), color: '#16a34a' },
-                      { label: 'Offered', value: pos.statuses['OFFERED'] || 0, color: '#2563eb' },
-                      { label: 'Goal', value: pos.count, color: BYU_BLUE },
-                    ].map(row => (
-                      <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                        <span style={{ color: row.color, fontWeight: 500 }}>{row.label}</span>
-                        <span style={{ fontWeight: 600 }}>{row.value}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {pos.position}
+                  <span style={{ fontSize: '12px', fontWeight: 400, marginLeft: '6px', opacity: 0.8 }}>
+                    ({pos.count})
+                  </span>
                 </div>
-              ))}
-            </div>
-          </>
-        )}
-      </section>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  {[
+                    { label: 'Committed', value: (pos.statuses['COMMITTED'] || 0) + (pos.statuses['SIGNED'] || 0), color: '#16a34a' },
+                    { label: 'Offered', value: pos.statuses['OFFERED'] || 0, color: '#2563eb' },
+                    { label: 'Goal', value: pos.count, color: BYU_BLUE },
+                  ].map(row => (
+                    <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                      <span style={{ color: row.color, fontWeight: 500 }}>{row.label}</span>
+                      <span style={{ fontWeight: 600 }}>{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Top Players by Position */}
       <section className="panel" style={{

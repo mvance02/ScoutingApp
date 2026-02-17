@@ -15,7 +15,7 @@ import {
   deleteStat,
   setGamePlayers,
 } from '../utils/storage'
-import { gradesApi, notesApi, authApi, statsApi } from '../utils/api'
+import { gradesApi, notesApi, authApi, statsApi, shortcutsApi } from '../utils/api'
 import { useUndoRedo } from '../hooks/useUndoRedo'
 import { useWebSocket } from '../hooks/useWebSocket'
 import EmptyState from './EmptyState'
@@ -74,7 +74,7 @@ const OFFENSE_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'OL', 'ATH']
 const DEFENSE_POSITIONS = ['DL', 'LB', 'DB']
 const POSITIONS = ['All', 'QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'DB', 'K', 'P', 'ATH']
 
-const SHORTCUTS = {
+const DEFAULT_SHORTCUTS = {
   r: 'Rush',
   c: 'Reception',
   t: 'Tackle Solo',
@@ -90,7 +90,7 @@ const SHORTCUTS = {
   q: 'Sack Taken', // q for QB sacked
 }
 
-const COMBO_SHORTCUTS = {
+const DEFAULT_COMBO_SHORTCUTS = {
   RT: 'Rush TD',
   CT: 'Rec TD',
   PT: 'Pass TD',
@@ -132,6 +132,10 @@ function GameReview() {
     period: '',
     note: '',
   })
+
+  // Custom keyboard shortcuts
+  const [activeShortcuts, setActiveShortcuts] = useState(DEFAULT_SHORTCUTS)
+  const [activeComboShortcuts, setActiveComboShortcuts] = useState(DEFAULT_COMBO_SHORTCUTS)
 
   // User state for admin check
   const [currentUser, setCurrentUser] = useState(null)
@@ -204,9 +208,14 @@ function GameReview() {
     async function fetchData() {
       setLoading(true)
       try {
-        // Load current user info
-        const userData = await authApi.me().catch(() => null)
+        // Load current user info and custom shortcuts
+        const [userData, shortcutsData] = await Promise.all([
+          authApi.me().catch(() => null),
+          shortcutsApi.get().catch(() => null),
+        ])
         setCurrentUser(userData)
+        if (shortcutsData?.shortcuts) setActiveShortcuts(shortcutsData.shortcuts)
+        if (shortcutsData?.combo_shortcuts) setActiveComboShortcuts(shortcutsData.combo_shortcuts)
 
         const [playersData, gamesData] = await Promise.all([loadPlayers(), loadGames()])
         setPlayers(playersData)
@@ -663,11 +672,11 @@ function GameReview() {
     const value = parseFloat(decimalMatch[1])
     const shortcutKey = decimalMatch[2].toUpperCase()
 
-    if (shortcutKey.length === 2 && COMBO_SHORTCUTS[shortcutKey]) {
-      const statType = COMBO_SHORTCUTS[shortcutKey]
+    if (shortcutKey.length === 2 && activeComboShortcuts[shortcutKey]) {
+      const statType = activeComboShortcuts[shortcutKey]
       addStatEntry({ statType, value })
     } else {
-      const statType = SHORTCUTS[shortcutKey.toLowerCase()]
+      const statType = activeShortcuts[shortcutKey.toLowerCase()]
       if (!statType) return
       addStatEntry({ statType, value })
     }
@@ -957,7 +966,7 @@ function GameReview() {
         applyTimestamp()
         return
       }
-      const statType = SHORTCUTS[key]
+      const statType = activeShortcuts[key]
       if (!statType) return
       const bufferedValue = valueBuffer ? parseFloat(valueBuffer) : 1
       event.preventDefault()
@@ -967,7 +976,7 @@ function GameReview() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [statForm, gameStats, clockSeconds, valueBuffer, undo, redo, addStatEntry, applyTimestamp])
+  }, [statForm, gameStats, clockSeconds, valueBuffer, undo, redo, addStatEntry, applyTimestamp, activeShortcuts])
 
   const exportGameStats = () => {
     if (!game || gameStats.length === 0) return
@@ -1334,7 +1343,7 @@ function GameReview() {
                 </p>
               ) : null}
               <div className="shortcut-grid">
-                {Object.entries(SHORTCUTS).map(([key, label]) => (
+                {Object.entries(activeShortcuts).map(([key, label]) => (
                   <div key={key} className="shortcut-pill">
                     <span>{key.toUpperCase()}</span>
                     <span>{label}</span>

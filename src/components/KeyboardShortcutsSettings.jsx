@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Save, RotateCcw, AlertTriangle, Check } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { X, Save, RotateCcw, AlertTriangle, Check } from 'lucide-react'
 import { shortcutsApi } from '../utils/api'
 
 const DEFAULT_SHORTCUTS = {
@@ -24,26 +24,52 @@ const DEFAULT_COMBOS = {
   PT: 'Pass TD',
 }
 
-function KeyboardShortcutsSettings() {
-  const [shortcuts, setShortcuts] = useState({ ...DEFAULT_SHORTCUTS })
-  const [combos, setCombos] = useState({ ...DEFAULT_COMBOS })
-  const [recording, setRecording] = useState(null) // stat type being recorded
+const ALL_STATS = Object.values(DEFAULT_SHORTCUTS)
+
+function KeyboardShortcutsSettings({ isOpen, onClose, currentShortcuts, currentCombos, onSave }) {
+  const modalRef = useRef(null)
+  const [shortcuts, setShortcuts] = useState({})
+  const [combos, setCombos] = useState({})
+  const [recording, setRecording] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    shortcutsApi.get()
-      .then((data) => {
-        if (data?.shortcuts) setShortcuts(data.shortcuts)
-        if (data?.combo_shortcuts) setCombos(data.combo_shortcuts)
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
+    if (isOpen) {
+      setShortcuts({ ...(currentShortcuts || DEFAULT_SHORTCUTS) })
+      setCombos({ ...(currentCombos || DEFAULT_COMBOS) })
+      setError(null)
+      setRecording(null)
+      setSaved(false)
+    }
+  }, [isOpen, currentShortcuts, currentCombos])
 
-  // Find duplicate keys
+  useEffect(() => {
+    if (!isOpen) return
+    function handleEsc(e) {
+      if (e.key === 'Escape') {
+        if (recording) {
+          setRecording(null)
+        } else {
+          onClose()
+        }
+      }
+    }
+    function handleClickOutside(e) {
+      if (modalRef.current && !modalRef.current.contains(e.target)) onClose()
+    }
+    document.addEventListener('keydown', handleEsc)
+    document.addEventListener('mousedown', handleClickOutside)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', handleEsc)
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.body.style.overflow = 'unset'
+    }
+  }, [isOpen, onClose, recording])
+
+  // Duplicate detection
   const duplicates = (() => {
     const keyCount = {}
     Object.keys(shortcuts).forEach((key) => {
@@ -56,30 +82,31 @@ function KeyboardShortcutsSettings() {
     (e) => {
       if (!recording) return
       e.preventDefault()
+      e.stopPropagation()
       const key = e.key.toLowerCase()
 
-      // Ignore modifier keys and special keys
-      if (['shift', 'control', 'alt', 'meta', 'tab', 'enter', 'escape', ' ', '?'].includes(key) || e.key.length > 1) {
+      if (['shift', 'control', 'alt', 'meta', 'tab', 'enter', ' ', '?'].includes(key) || e.key.length > 1) {
         if (key === 'escape') setRecording(null)
         return
       }
 
-      // Find and remove the old key for this stat type
-      const oldKey = Object.entries(shortcuts).find(([, val]) => val === recording)?.[0]
+      // Remove old key for this stat, assign new one
       const newShortcuts = { ...shortcuts }
+      const oldKey = Object.entries(newShortcuts).find(([, val]) => val === recording)?.[0]
       if (oldKey) delete newShortcuts[oldKey]
       newShortcuts[key] = recording
 
       setShortcuts(newShortcuts)
       setRecording(null)
+      setError(null)
     },
     [recording, shortcuts]
   )
 
   useEffect(() => {
     if (recording) {
-      window.addEventListener('keydown', handleRecordKey)
-      return () => window.removeEventListener('keydown', handleRecordKey)
+      window.addEventListener('keydown', handleRecordKey, true)
+      return () => window.removeEventListener('keydown', handleRecordKey, true)
     }
   }, [recording, handleRecordKey])
 
@@ -87,14 +114,17 @@ function KeyboardShortcutsSettings() {
     setSaving(true)
     setError(null)
     try {
-      await shortcutsApi.update({ shortcuts, combo_shortcuts: combos })
+      await shortcutsApi.save({ shortcuts, combo_shortcuts: combos })
       setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      setTimeout(() => {
+        setSaved(false)
+        onSave({ shortcuts, combos })
+        onClose()
+      }, 800)
     } catch (err) {
       setError(err.message || 'Failed to save shortcuts')
-    } finally {
-      setSaving(false)
     }
+    setSaving(false)
   }
 
   const handleReset = async () => {
@@ -104,43 +134,93 @@ function KeyboardShortcutsSettings() {
       await shortcutsApi.reset()
       setShortcuts({ ...DEFAULT_SHORTCUTS })
       setCombos({ ...DEFAULT_COMBOS })
+      onSave(null)
       setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      setTimeout(() => setSaved(false), 1500)
     } catch (err) {
       setError(err.message || 'Failed to reset shortcuts')
-    } finally {
-      setSaving(false)
     }
+    setSaving(false)
   }
 
-  if (loading) {
-    return (
-      <div className="page">
-        <p>Loading shortcuts...</p>
-      </div>
-    )
-  }
+  if (!isOpen) return null
 
-  // Build a reverse map: stat type -> key
+  // Reverse map: stat → key
   const statToKey = {}
   Object.entries(shortcuts).forEach(([key, stat]) => {
     statToKey[stat] = key
   })
 
-  // All stat types from defaults (use this as the canonical list of remappable stats)
-  const allStats = Object.values(DEFAULT_SHORTCUTS)
-
   return (
-    <div className="page">
-      <header className="page-header">
-        <div>
-          <h2>Keyboard Shortcuts</h2>
-          <p>Customize the keys used for quick stat entry during game review.</p>
+    <div className="modal-overlay">
+      <div className="modal-content shortcuts-modal" ref={modalRef} style={{ maxWidth: '480px' }}>
+        <div className="modal-header">
+          <h2>Customize Shortcuts</h2>
+          <button className="modal-close-btn" onClick={onClose} aria-label="Close">
+            <X size={20} />
+          </button>
         </div>
-        <div className="action-row">
+
+        <div style={{ padding: '16px 24px', maxHeight: '60vh', overflowY: 'auto' }}>
+          {error && (
+            <div style={{ background: 'var(--color-danger)', color: 'white', padding: '8px 12px', borderRadius: 'var(--radius-sm)', marginBottom: '12px', fontSize: '13px' }}>
+              {error}
+            </div>
+          )}
+
+          <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>
+            Click a row then press the key you want to assign. Press Escape to cancel.
+          </p>
+
+          <div className="shortcuts-settings-grid">
+            {ALL_STATS.map((stat) => {
+              const key = statToKey[stat]
+              const isDuplicate = key && duplicates.has(key)
+              const isRecording = recording === stat
+              return (
+                <div
+                  key={stat}
+                  className={`shortcut-setting-row${isRecording ? ' recording' : ''}${isDuplicate ? ' duplicate' : ''}`}
+                  onClick={() => setRecording(stat)}
+                >
+                  <span className="shortcut-setting-label">{stat}</span>
+                  <span className="shortcut-setting-key">
+                    {isRecording ? (
+                      <kbd className="shortcut-key-recording">...</kbd>
+                    ) : key ? (
+                      <kbd>{key.toUpperCase()}</kbd>
+                    ) : (
+                      <span style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>—</span>
+                    )}
+                  </span>
+                  {isDuplicate && (
+                    <AlertTriangle size={13} style={{ color: 'var(--color-warning)' }} />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <h4 style={{ fontSize: '13px', fontWeight: 600, margin: '16px 0 6px', color: 'var(--color-text-secondary)' }}>
+            Combo Keys
+          </h4>
+          <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '8px' }}>
+            Used in quick entry field (e.g., "20RT"). Not remappable.
+          </p>
+          <div className="shortcuts-settings-grid">
+            {Object.entries(combos).map(([combo, stat]) => (
+              <div key={combo} className="shortcut-setting-row" style={{ cursor: 'default', opacity: 0.7 }}>
+                <span className="shortcut-setting-label">{stat}</span>
+                <span className="shortcut-setting-key"><kbd>{combo}</kbd></span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 24px', borderTop: '1px solid var(--color-border)' }}>
           <button className="btn-ghost" onClick={handleReset} disabled={saving}>
-            <RotateCcw size={16} />
-            Reset to Defaults
+            <RotateCcw size={14} />
+            Reset Defaults
           </button>
           <button
             className={saved ? 'btn-saved' : 'btn-primary'}
@@ -148,88 +228,13 @@ function KeyboardShortcutsSettings() {
             disabled={saving || saved || duplicates.size > 0}
           >
             {saved ? (
-              <><Check size={16} /> Saved!</>
+              <><Check size={14} /> Saved!</>
             ) : (
-              <><Save size={16} /> Save Shortcuts</>
+              <><Save size={14} /> Save</>
             )}
           </button>
         </div>
-      </header>
-
-      {error && (
-        <div className="panel" style={{ background: 'var(--color-danger)', color: 'white', padding: '12px 16px' }}>
-          {error}
-        </div>
-      )}
-
-      <section className="panel">
-        <h3>Stat Entry Keys</h3>
-        <p className="helper-text">
-          Click a stat row, then press the key you want to assign. Press Escape to cancel.
-        </p>
-
-        <div className="table">
-          <div className="table-row table-header">
-            <span>Stat Type</span>
-            <span>Key</span>
-            <span />
-          </div>
-          {allStats.map((stat) => {
-            const key = statToKey[stat]
-            const isDuplicate = key && duplicates.has(key)
-            const isRecording = recording === stat
-            return (
-              <div
-                key={stat}
-                className={`table-row ${isRecording ? 'active' : ''}`}
-                onClick={() => setRecording(stat)}
-                style={{ cursor: 'pointer' }}
-              >
-                <span>{stat}</span>
-                <span>
-                  {isRecording ? (
-                    <kbd style={{ background: 'var(--color-primary)', color: 'white', animation: 'pulse 1s infinite' }}>
-                      Press a key...
-                    </kbd>
-                  ) : key ? (
-                    <kbd>{key.toUpperCase()}</kbd>
-                  ) : (
-                    <span style={{ color: 'var(--color-text-muted)' }}>Not assigned</span>
-                  )}
-                </span>
-                <span>
-                  {isDuplicate && (
-                    <span style={{ color: 'var(--color-warning)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
-                      <AlertTriangle size={14} />
-                      Duplicate key
-                    </span>
-                  )}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      </section>
-
-      <section className="panel">
-        <h3>Combo Keys</h3>
-        <p className="helper-text">
-          Combo shortcuts are used in the quick entry field (e.g., "20RT" for a 20-yard Rush TD).
-          These use two-letter combinations and are not remappable.
-        </p>
-        <div className="table">
-          <div className="table-row table-header">
-            <span>Combo</span>
-            <span>Stat Type</span>
-          </div>
-          {Object.entries(combos).map(([combo, stat]) => (
-            <div key={combo} className="table-row">
-              <span><kbd>{combo}</kbd></span>
-              <span>{stat}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+      </div>
     </div>
   )
 }

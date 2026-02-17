@@ -28,6 +28,7 @@ import playerCommentsRouter from './routes/playerComments.js'
 import visitsRouter from './routes/visits.js'
 import activityRouter from './routes/activity.js'
 import chatRouter from './routes/chat.js'
+import shortcutsRouter from './routes/shortcuts.js'
 import { requireAuth } from './middleware/auth.js'
 import { authLimiter, passwordResetLimiter, apiLimiter, statCreationLimiter } from './middleware/rateLimit.js'
 import { initializeWebSocket } from './websocket.js'
@@ -104,6 +105,7 @@ app.use('/api/player-comments', requireAuth, playerCommentsRouter)
 app.use('/api/visits', requireAuth, visitsRouter)
 app.use('/api/activity', requireAuth, activityRouter)
 app.use('/api/chat', requireAuth, chatRouter)
+app.use('/api/shortcuts', requireAuth, shortcutsRouter)
 app.use('/api', backupRouter)
 
 // Error handling

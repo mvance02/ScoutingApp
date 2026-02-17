@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom'
-import { Home, Users, Plus, Moon, Sun, HelpCircle, FileText, UserCheck, Bell, ClipboardList, BarChart3 } from 'lucide-react'
+import { Home, Users, Plus, Moon, Sun, HelpCircle, Settings, FileText, UserCheck, Bell, ClipboardList, BarChart3 } from 'lucide-react'
 import Dashboard from './components/Dashboard'
 import GameReview from './components/GameReview'
 import PlayerManagement from './components/PlayerManagement'
@@ -9,7 +9,7 @@ import PlayerStats from './components/PlayerStats'
 import Login from './components/Login'
 import ForgotPassword from './components/ForgotPassword'
 import ResetPassword from './components/ResetPassword'
-import { authApi } from './utils/api'
+import { authApi, shortcutsApi } from './utils/api'
 import UserManagement from './components/UserManagement'
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal'
 import AuditLog from './components/AuditLog'
@@ -18,11 +18,15 @@ import RecruitsReport from './components/RecruitsReport'
 import Notifications from './components/Notifications'
 import Analytics from './components/Analytics'
 import PlayerProfile from './components/PlayerProfile'
+import KeyboardShortcutsSettings from './components/KeyboardShortcutsSettings'
 
 function App() {
   const [user, setUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false)
+  const [shortcutsSettingsOpen, setShortcutsSettingsOpen] = useState(false)
+  const [userShortcuts, setUserShortcuts] = useState(null)
+  const [userCombos, setUserCombos] = useState(null)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [showFallbackWarning, setShowFallbackWarning] = useState(false)
   const [darkMode, setDarkMode] = useState(() => {
@@ -42,7 +46,15 @@ function App() {
       return
     }
     authApi.me()
-      .then(setUser)
+      .then((u) => {
+        setUser(u)
+        shortcutsApi.get()
+          .then((data) => {
+            if (data?.shortcuts) setUserShortcuts(data.shortcuts)
+            if (data?.combo_shortcuts) setUserCombos(data.combo_shortcuts)
+          })
+          .catch(() => {})
+      })
       .catch(() => {
         localStorage.removeItem('auth_token')
       })
@@ -120,6 +132,7 @@ function App() {
             setUser(null)
           }}
           onShowShortcuts={() => setShortcutsModalOpen(true)}
+          onShowSettings={() => setShortcutsSettingsOpen(true)}
           onShowNotifications={() => setNotificationsOpen(true)}
         />
         <main className="main-content">
@@ -143,6 +156,23 @@ function App() {
         <KeyboardShortcutsModal
           isOpen={shortcutsModalOpen}
           onClose={() => setShortcutsModalOpen(false)}
+          shortcuts={userShortcuts}
+          comboShortcuts={userCombos}
+        />
+        <KeyboardShortcutsSettings
+          isOpen={shortcutsSettingsOpen}
+          onClose={() => setShortcutsSettingsOpen(false)}
+          currentShortcuts={userShortcuts}
+          currentCombos={userCombos}
+          onSave={(data) => {
+            if (data) {
+              setUserShortcuts(data.shortcuts)
+              setUserCombos(data.combos)
+            } else {
+              setUserShortcuts(null)
+              setUserCombos(null)
+            }
+          }}
         />
         {notificationsOpen && (
           <Notifications onClose={() => setNotificationsOpen(false)} />
@@ -152,7 +182,7 @@ function App() {
   )
 }
 
-function NavBar({ user, darkMode, onToggleDarkMode, onLogout, onShowShortcuts, onShowNotifications }) {
+function NavBar({ user, darkMode, onToggleDarkMode, onLogout, onShowShortcuts, onShowSettings, onShowNotifications }) {
   const navigate = useNavigate()
   const [activePath, setActivePath] = useState(window.location.pathname)
 
@@ -262,6 +292,13 @@ function NavBar({ user, darkMode, onToggleDarkMode, onLogout, onShowShortcuts, o
           title="Keyboard shortcuts (?)"
         >
           <HelpCircle size={20} />
+        </button>
+        <button
+          className="btn-ghost"
+          onClick={onShowSettings}
+          title="Customize shortcuts"
+        >
+          <Settings size={20} />
         </button>
         <button
           className="btn-ghost"

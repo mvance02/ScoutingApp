@@ -228,6 +228,13 @@ export const chatApi = {
   markAsRead: (roomId) => request(`/chat/messages/${roomId}/read`, { method: 'PUT' }),
 }
 
+// Shortcuts API
+export const shortcutsApi = {
+  get: () => request('/shortcuts'),
+  save: (data) => request('/shortcuts', { method: 'PUT', body: data }),
+  reset: () => request('/shortcuts/reset', { method: 'POST' }),
+}
+
 // Check if API is available
 export async function checkApiHealth() {
   try {

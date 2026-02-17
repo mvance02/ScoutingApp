@@ -134,7 +134,14 @@ function ScoutAssignments() {
   if (loading) {
     return (
       <div className="page">
-        <p>Loading assignments...</p>
+        <div style={{ marginBottom: '20px' }}>
+          <div className="skeleton-block skeleton-title" />
+          <div className="skeleton-block skeleton-subtitle" />
+        </div>
+        <div className="skeleton-block skeleton-panel-sm" />
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="skeleton-block skeleton-row" />
+        ))}
       </div>
     )
   }

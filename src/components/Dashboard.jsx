@@ -390,7 +390,22 @@ function Dashboard() {
   if (loading) {
     return (
       <div className="page">
-        <p>Loading...</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div>
+            <div className="skeleton-block skeleton-title" />
+            <div className="skeleton-block skeleton-subtitle" />
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div className="skeleton-block skeleton-btn" />
+            <div className="skeleton-block skeleton-btn" />
+          </div>
+        </div>
+        <div className="skeleton-block skeleton-panel-sm" />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+          <div className="skeleton-block skeleton-panel" />
+          <div className="skeleton-block skeleton-panel" />
+        </div>
+        <div className="skeleton-block skeleton-panel" />
       </div>
     )
   }

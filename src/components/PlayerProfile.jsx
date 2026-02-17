@@ -161,8 +161,26 @@ function PlayerProfile() {
 
   if (loading) {
     return (
-      <div className="page" style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
-        <p>Loading player profile...</p>
+      <div className="page">
+        <div style={{ background: 'var(--color-bg-muted)', borderRadius: '12px', padding: '32px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <div className="skeleton-block skeleton-avatar" />
+          <div style={{ flex: 1 }}>
+            <div className="skeleton-block" style={{ height: '28px', width: '220px', marginBottom: '10px' }} />
+            <div className="skeleton-block" style={{ height: '16px', width: '160px', marginBottom: '8px' }} />
+            <div className="skeleton-block" style={{ height: '16px', width: '280px' }} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="skeleton-block" style={{ height: '32px', width: '80px', borderRadius: '16px' }} />
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="skeleton-block skeleton-card" />
+          ))}
+        </div>
+        <div className="skeleton-block skeleton-panel" />
       </div>
     )
   }

@@ -240,7 +240,11 @@ function AuditLog() {
       {error && <div className="error-message">{error}</div>}
 
       {loading ? (
-        <div className="loading-spinner">Loading audit log...</div>
+        <div style={{ padding: '0' }}>
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="skeleton-block skeleton-row" />
+          ))}
+        </div>
       ) : (
         <>
           <div className="table-container">

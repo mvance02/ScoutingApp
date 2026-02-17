@@ -469,7 +469,17 @@ function PlayerManagement() {
   if (loading) {
     return (
       <div className="page">
-        <p>Loading players...</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div>
+            <div className="skeleton-block skeleton-title" />
+            <div className="skeleton-block skeleton-subtitle" />
+          </div>
+          <div className="skeleton-block skeleton-btn" />
+        </div>
+        <div className="skeleton-block skeleton-panel-sm" />
+        {[1, 2, 3, 4, 5, 6].map(i => (
+          <div key={i} className="skeleton-block skeleton-row" />
+        ))}
       </div>
     )
   }

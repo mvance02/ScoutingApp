@@ -373,7 +373,16 @@ function PlayerStats() {
   if (loading) {
     return (
       <div className="page">
-        <p>Loading player stats...</p>
+        <div style={{ marginBottom: '20px' }}>
+          <div className="skeleton-block skeleton-title" />
+          <div className="skeleton-block skeleton-subtitle" />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} className="skeleton-block skeleton-card" />
+          ))}
+        </div>
+        <div className="skeleton-block skeleton-panel" />
       </div>
     )
   }

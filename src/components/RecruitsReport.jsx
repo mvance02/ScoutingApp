@@ -451,7 +451,20 @@ function RecruitsReport() {
   if (loading) {
     return (
       <div className="page">
-        <p>Loading recruits report...</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div>
+            <div className="skeleton-block skeleton-title" />
+            <div className="skeleton-block skeleton-subtitle" />
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div className="skeleton-block skeleton-btn" />
+            <div className="skeleton-block skeleton-btn" />
+          </div>
+        </div>
+        <div className="skeleton-block" style={{ height: '40px', marginBottom: '16px' }} />
+        {[1, 2, 3, 4, 5].map(i => (
+          <div key={i} className="skeleton-block skeleton-row" />
+        ))}
       </div>
     )
   }

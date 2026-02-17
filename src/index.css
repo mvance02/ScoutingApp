@@ -2111,6 +2111,64 @@ body {
   border-radius: var(--radius-sm);
 }
 
+/* Generic skeleton sizes */
+.skeleton-header {
+  height: 56px;
+  margin-bottom: 20px;
+}
+
+.skeleton-title {
+  height: 24px;
+  width: 200px;
+  margin-bottom: 8px;
+}
+
+.skeleton-subtitle {
+  height: 16px;
+  width: 320px;
+}
+
+.skeleton-panel {
+  height: 260px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 20px;
+}
+
+.skeleton-panel-sm {
+  height: 140px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 16px;
+}
+
+.skeleton-row {
+  height: 48px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-card {
+  height: 120px;
+  border-radius: var(--radius-lg);
+}
+
+.skeleton-form-field {
+  height: 38px;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-btn {
+  height: 36px;
+  width: 120px;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+}
+
+/* Analytics-specific skeletons */
 .analytics-skeleton-header {
   height: 60px;
   margin-bottom: 24px;

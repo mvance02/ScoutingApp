@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Download, Plus, Undo2, Redo2, Pencil, Search, MessageSquare, Star, Clock, Check, Save, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Undo2, Redo2, Pencil, Search, MessageSquare, Clock, Check, Save, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   loadData,
   saveData,
-  exportToCSV,
   loadPlayers,
   loadGames,
   loadStats,
@@ -19,6 +18,8 @@ import { gradesApi, notesApi, authApi, statsApi, shortcutsApi } from '../utils/a
 import { useUndoRedo } from '../hooks/useUndoRedo'
 import { useWebSocket } from '../hooks/useWebSocket'
 import EmptyState from './EmptyState'
+import GameReviewExportMenu from './GameReviewExportMenu'
+import GameReviewStatRow from './GameReviewStatRow'
 
 const STAT_TYPES = [
   'Rush',
@@ -295,8 +296,8 @@ function GameReview() {
   const filteredPlayers = useMemo(() => {
     return players.filter((player) => {
       // Filter out JUCO and Transfer players
-      if (player.isJuco === true || player.is_juco === true) return false
-      if (player.isTransferWishlist === true || player.is_transfer_wishlist === true) return false
+      if (player.isJuco === true) return false
+      if (player.isTransferWishlist === true) return false
 
       if (playerSearch) {
         const query = playerSearch.toLowerCase()
@@ -337,8 +338,8 @@ function GameReview() {
     if (!game) return []
     // Filter out JUCO and Transfer players from review players
     return players.filter((player) => {
-      if (player.isJuco === true || player.is_juco === true) return false
-      if (player.isTransferWishlist === true || player.is_transfer_wishlist === true) return false
+      if (player.isJuco === true) return false
+      if (player.isTransferWishlist === true) return false
       return game.playerIds?.includes(player.id)
     })
   }, [players, game])
@@ -987,51 +988,6 @@ function GameReview() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [statForm, gameStats, clockSeconds, valueBuffer, undo, redo, addStatEntry, applyTimestamp, activeShortcuts])
 
-  const exportGameStats = () => {
-    if (!game || gameStats.length === 0) return
-    const rows = reviewPlayers.map((player) => {
-      const playerTotals = totals[player.id] || {}
-      const derived = getPlayerTotals(player.id)
-      return {
-        date: game.date,
-        name: player.name,
-        school: player.school || '',
-        opponent: game.opponent,
-        position: player.position || '',
-        gradYear: player.gradYear || '',
-        totalYards: derived.totalYards,
-        rushYards: derived.rushingYards,
-        rushAttempts: derived.rushAttempts,
-        yardsPerCarry: Number(derived.yardsPerCarry.toFixed(1)),
-        rushingTDs: derived.rushingTDs,
-        receivingYards: derived.receivingYards,
-        receptions: derived.receptionCount,
-        targets: derived.targetCount,
-        yardsPerReception: Number(derived.yardsPerReception.toFixed(1)),
-        receivingTDs: derived.receivingTDs,
-        returnYards: derived.returnYards,
-        tackles: derived.tackles,
-        sacks: derived.sacks,
-        interceptions: playerTotals['INT'] || 0,
-        passBreakups: playerTotals['PBU'] || 0,
-        forcedFumbles: playerTotals['Forced Fumble'] || 0,
-        fumbles: playerTotals['Fumble'] || 0,
-        passCompletions: playerTotals['Pass Comp'] || 0,
-        passIncompletions: playerTotals['Pass Inc'] || 0,
-        passTDs: playerTotals['Pass TD'] || 0,
-        tacklesForLoss: playerTotals['TFL'] || 0,
-        touchdowns: playerTotals['TD'] || 0,
-        fieldGoals: playerTotals['FG'] || 0,
-        pats: playerTotals['PAT'] || 0,
-        kickoffs: playerTotals['Kickoff'] || 0,
-        punts: playerTotals['Punt'] || 0,
-        gameId: game.id,
-      }
-    })
-    const filename = `${game.opponent || 'game'}-summary.csv`
-    exportToCSV(rows, filename)
-  }
-
   if (!gameId) {
     return (
       <div className="page">
@@ -1084,10 +1040,12 @@ function GameReview() {
             <Redo2 size={16} />
             Redo
           </button>
-          <button className="btn-secondary" onClick={exportGameStats}>
-            <Download size={16} />
-            Export CSV
-          </button>
+          <GameReviewExportMenu
+            game={game}
+            reviewPlayers={reviewPlayers}
+            totals={totals}
+            getPlayerTotals={getPlayerTotals}
+          />
         </div>
       </header>
 
@@ -1392,130 +1350,17 @@ function GameReview() {
             {reviewPlayers.map((player) => {
               const currentGrade = gradeForm.playerId === player.id ? gradeForm : playerGrades[player.id] || {}
               return (
-                <div key={player.id} className="totals-card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <strong>{player.name}</strong>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Star size={16} style={{ color: 'var(--color-warning)' }} />
-                      <select
-                        value={currentGrade.grade || ''}
-                        onChange={(e) => handleGradeChange(player.id, 'grade', e.target.value)}
-                        style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '13px' }}
-                      >
-                        <option value="">Grade</option>
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                        <option value="F">F</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px', padding: '10px', background: 'var(--color-bg-light)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
-                    <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Game Info
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
-                      <input
-                        type="text"
-                        placeholder="Score (W 28-14)"
-                        value={currentGrade.game_score || ''}
-                        onChange={(e) => handleGradeChange(player.id, 'game_score', e.target.value)}
-                        style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '13px' }}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Record (5-2)"
-                        value={currentGrade.team_record || ''}
-                        onChange={(e) => handleGradeChange(player.id, 'team_record', e.target.value)}
-                        style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '13px' }}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Next Opponent"
-                        value={currentGrade.next_opponent || ''}
-                        onChange={(e) => handleGradeChange(player.id, 'next_opponent', e.target.value)}
-                        style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '13px' }}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Next Game Date"
-                        value={currentGrade.next_game_date || ''}
-                        onChange={(e) => handleGradeChange(player.id, 'next_game_date', e.target.value)}
-                        style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '13px' }}
-                      />
-                    </div>
-                    <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '8px' }}>
-                      Game Notes
-                    </label>
-                    <textarea
-                      placeholder="Scout notes for this game..."
-                      value={currentGrade.notes || ''}
-                      onChange={(e) => handleGradeChange(player.id, 'notes', e.target.value)}
-                      rows={2}
-                      style={{ padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '13px', width: '100%', resize: 'vertical', fontFamily: 'inherit' }}
-                    />
-                    {isAdmin && (
-                      <textarea
-                        placeholder="Admin notes (admin only)..."
-                        value={currentGrade.admin_notes || ''}
-                        onChange={(e) => handleGradeChange(player.id, 'admin_notes', e.target.value)}
-                        rows={2}
-                        style={{ padding: '8px 10px', borderRadius: '6px', border: '2px solid var(--color-warning)', fontSize: '13px', width: '100%', resize: 'vertical', fontFamily: 'inherit', background: 'rgba(217, 119, 6, 0.1)' }}
-                      />
-                    )}
-                    <button
-                      className={savedGrades.has(player.id) ? 'btn-saved' : 'btn-primary'}
-                      onClick={() => handleSaveGrade(player.id)}
-                      disabled={savedGrades.has(player.id)}
-                      style={{ fontSize: '12px', padding: '6px 12px', alignSelf: 'flex-start' }}
-                    >
-                      {savedGrades.has(player.id) ? (
-                        <><Check size={14} /> Saved!</>
-                      ) : (
-                        <><Save size={14} /> Save</>
-                      )}
-                    </button>
-                  </div>
-                  <div className="totals-list">
-                    {(() => {
-                      const derived = getPlayerTotals(player.id)
-                      const roleFlags = getPlayerRoleFlags(player)
-                      return (
-                        <>
-                          {roleFlags.showOffense ? (
-                            <>
-                              <span>Total Yards: {derived.totalYards}</span>
-                              <span>Rush Yards: {derived.rushingYards}</span>
-                              <span>Rush Att: {derived.rushAttempts}</span>
-                              <span>Yards/Carry: {derived.yardsPerCarry.toFixed(1)}</span>
-                              <span>Rush TDs: {derived.rushingTDs}</span>
-                              <span>Rec Yards: {derived.receivingYards}</span>
-                              <span>Receptions: {derived.receptionCount}</span>
-                              <span>Yards/Rec: {derived.yardsPerReception.toFixed(1)}</span>
-                              <span>Rec TDs: {derived.receivingTDs}</span>
-                              <span>Targets: {derived.targetCount}</span>
-                              <span>Return Yards: {derived.returnYards}</span>
-                            </>
-                          ) : null}
-                          {roleFlags.showDefense ? (
-                            <>
-                              <span>Tackles: {derived.tackles}</span>
-                              <span>
-                                {derived.sacks === 1 ? 'Sack' : 'Sacks'}: {derived.sacks}
-                              </span>
-                            </>
-                          ) : null}
-                        </>
-                      )
-                    })()}
-                    {STAT_TYPES.map((type) => (
-                      <span key={type}>
-                        {type}: {totals[player.id]?.[type] || 0}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                <GameReviewStatRow
+                  key={player.id}
+                  player={player}
+                  currentGrade={currentGrade}
+                  totals={totals}
+                  getPlayerTotals={getPlayerTotals}
+                  onGradeChange={handleGradeChange}
+                  onSaveGrade={handleSaveGrade}
+                  savedGrades={savedGrades}
+                  isAdmin={isAdmin}
+                />
               )
             })}
           </div>

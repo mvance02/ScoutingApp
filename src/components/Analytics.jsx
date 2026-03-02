@@ -13,7 +13,7 @@ const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'DE', 'LB', 'C', 'S'
 const BYU_BLUE = '#002E5D'
 const BYU_BLUE_LIGHT = '#0062B8'
 const BYU_BLUE_TINT = '#E8EEF7'
-const COMPOSITE_GOAL = 86.12
+const COMPOSITE_GOAL_DEFAULT = 86.12
 
 const STATUS_COLORS = {
   COMMITTED: '#16a34a',
@@ -112,7 +112,7 @@ function isCommitted(player) {
 function isOffered(player) {
   const statuses = getStatuses(player).map(s => s.toLowerCase())
   const hasOfferedStatus = statuses.some(s => s === 'offered' || s === 'offer')
-  const hasOfferedDate = !!(player.offeredDate || player.offered_date)
+  const hasOfferedDate = !!(player.offeredDate)
   const hasOfferedInArray = Array.isArray(player.recruitingStatuses) && 
                            player.recruitingStatuses.some(s => {
                              const str = String(s).toLowerCase().trim()
@@ -182,6 +182,8 @@ function Analytics() {
   const [positionGoals, setPositionGoals] = useState({})
   const [editingGoalPos, setEditingGoalPos] = useState(null)
   const [editingGoalValue, setEditingGoalValue] = useState('')
+  const [editingCompositeGoal, setEditingCompositeGoal] = useState(false)
+  const [editingCompositeValue, setEditingCompositeValue] = useState('')
 
   useEffect(() => {
     async function fetchData() {
@@ -203,8 +205,8 @@ function Analytics() {
         // 1. Committed players (for time-to-commit calculation)
         // 2. Players with "Committed Elsewhere" (for competitor schools analysis)
         const hsPlayers = playersData.filter((p) => {
-          if (p.isJuco === true || p.is_juco === true) return false
-          if (p.isTransferWishlist === true || p.is_transfer_wishlist === true) return false
+          if (p.isJuco === true) return false
+          if (p.isTransferWishlist === true) return false
           return true
         })
         
@@ -262,8 +264,8 @@ function Analytics() {
   const filteredPlayers = useMemo(() => {
     // Filter out JUCO and Transfer players
     const hsPlayers = players.filter((p) => {
-      if (p.isJuco === true || p.is_juco === true) return false
-      if (p.isTransferWishlist === true || p.is_transfer_wishlist === true) return false
+      if (p.isJuco === true) return false
+      if (p.isTransferWishlist === true) return false
       return true
     })
     if (classYearFilter === 'all') return hsPlayers
@@ -590,7 +592,7 @@ function Analytics() {
         committedSchool: committedElsewherePlayers[0].committedSchool,
         committed_school: committedElsewherePlayers[0].committed_school,
         isOffered: isOffered(committedElsewherePlayers[0]),
-        offeredDate: committedElsewherePlayers[0].offeredDate || committedElsewherePlayers[0].offered_date,
+        offeredDate: committedElsewherePlayers[0].offeredDate,
       } : null,
       schoolsFound: Object.keys(schoolMap),
       schoolMapData: schoolMap,
@@ -976,9 +978,48 @@ function Analytics() {
           boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
         }}>
           <div style={{ marginBottom: '12px' }}>
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600, color: BYU_BLUE }}>
-              Composite Rating by Position
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+              <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600, color: BYU_BLUE }}>
+                Composite Rating by Position
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                <span style={{ fontSize: '12px', color: '#6b7280' }}>Goal:</span>
+                {editingCompositeGoal ? (
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    autoFocus
+                    value={editingCompositeValue}
+                    onChange={(e) => setEditingCompositeValue(e.target.value)}
+                    onBlur={() => {
+                      const num = parseFloat(editingCompositeValue)
+                      const newGoals = { ...positionGoals, compositeRatingGoal: isNaN(num) ? COMPOSITE_GOAL_DEFAULT : num }
+                      setPositionGoals(newGoals)
+                      setEditingCompositeGoal(false)
+                      recruitingGoalsApi.save(newGoals).catch(console.error)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.target.blur()
+                      if (e.key === 'Escape') setEditingCompositeGoal(false)
+                    }}
+                    style={{ width: '64px', fontSize: '13px', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--color-border)' }}
+                  />
+                ) : (
+                  <span
+                    onClick={() => {
+                      setEditingCompositeGoal(true)
+                      setEditingCompositeValue(String(positionGoals.compositeRatingGoal ?? COMPOSITE_GOAL_DEFAULT))
+                    }}
+                    title="Click to edit composite rating goal"
+                    style={{ fontWeight: 600, fontSize: '13px', color: '#dc2626', cursor: 'pointer', borderBottom: '1px dashed #dc2626' }}
+                  >
+                    {positionGoals.compositeRatingGoal ?? COMPOSITE_GOAL_DEFAULT}+
+                  </span>
+                )}
+              </div>
+            </div>
             <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
               Avg. committed player ratings
               {isRatingDemo && <span style={{ marginLeft: '8px', fontStyle: 'italic', color: '#f59e0b' }}>(Sample Data)</span>}
@@ -1001,10 +1042,10 @@ function Analytics() {
               />
               <Tooltip content={<CustomTooltip />} />
               <ReferenceLine
-                y={COMPOSITE_GOAL}
+                y={positionGoals.compositeRatingGoal ?? COMPOSITE_GOAL_DEFAULT}
                 stroke="#dc2626"
                 strokeDasharray="6 4"
-                label={{ value: `Goal: ${COMPOSITE_GOAL}`, position: 'insideTopRight', fill: '#dc2626', fontSize: 11, fontWeight: 600, dy: -14 }}
+                label={{ value: `Goal: ${positionGoals.compositeRatingGoal ?? COMPOSITE_GOAL_DEFAULT}`, position: 'insideTopRight', fill: '#dc2626', fontSize: 11, fontWeight: 600, dy: -14 }}
               />
               <Bar dataKey="avgRating" name="Avg Rating" radius={[6, 6, 0, 0]} fill="#4169E1" />
             </BarChart>

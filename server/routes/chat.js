@@ -120,13 +120,15 @@ router.post('/messages', async (req, res, next) => {
     
     const messageWithUser = withUser.rows[0]
     
+    const io = req.app.get('io')
+
     // Create notifications for mentioned users
     for (const user of mentionedUsers) {
       if (user.id === req.user.id) continue // Don't notify self
-      
-      await pool.query(
+
+      const notifResult = await pool.query(
         `INSERT INTO notifications (user_id, title, message, type, read)
-         VALUES ($1, $2, $3, $4, false)`,
+         VALUES ($1, $2, $3, $4, false) RETURNING *`,
         [
           user.id,
           'You were mentioned in chat',
@@ -134,9 +136,10 @@ router.post('/messages', async (req, res, next) => {
           'mention',
         ]
       )
+      if (io && notifResult.rows[0]) {
+        io.to(`user:${user.id}`).emit('notification:new', notifResult.rows[0])
+      }
     }
-    
-    const io = req.app.get('io')
     
     // Broadcast via WebSocket
     if (io) {

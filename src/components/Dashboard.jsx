@@ -34,7 +34,7 @@ import {
   exportGameDayPDFByPosition,
   getPositionGroup,
 } from '../utils/exportUtils'
-import { emailApi, gradesApi } from '../utils/api'
+import { emailApi, gradesApi, recruitingGoalsApi } from '../utils/api'
 import TopPerformances from './TopPerformances'
 import EmptyState from './EmptyState'
 import ActivityFeed from './ActivityFeed'
@@ -58,21 +58,24 @@ function Dashboard() {
   const [sendSelectedOnly, setSendSelectedOnly] = useState(false)
   const [selectedPositions, setSelectedPositions] = useState([])
   const [previewPdfs, setPreviewPdfs] = useState([])
+  const [recruitingGoals, setRecruitingGoals] = useState({})
   const fileInputRef = useRef(null)
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true)
       try {
-        const [playersData, gamesData, statsData] = await Promise.all([
+        const [playersData, gamesData, statsData, goalsData] = await Promise.all([
           loadPlayers(),
           loadGames(),
           loadAllStats(),
+          recruitingGoalsApi.get().catch(() => ({})),
         ])
         setPlayers(playersData)
         setGames(gamesData)
         setStats(loadData('STATS'))
         setAllStatsFlat(statsData || [])
+        setRecruitingGoals(goalsData || {})
       } catch (err) {
         console.error('Error loading data:', err)
         setPlayers(loadData('PLAYERS'))
@@ -93,8 +96,8 @@ function Dashboard() {
   const { flaggedPlayers, sortedGames, totalStats, totalPages, paginatedGames, avgCompositeRating } = useMemo(() => {
     // Filter out JUCO and Transfer players
     const hsPlayers = players.filter((p) => {
-      if (p.isJuco === true || p.is_juco === true) return false
-      if (p.isTransferWishlist === true || p.is_transfer_wishlist === true) return false
+      if (p.isJuco === true) return false
+      if (p.isTransferWishlist === true) return false
       return true
     })
     const flagged = hsPlayers.filter((player) => player.flagged)
@@ -449,7 +452,7 @@ function Dashboard() {
                 Avg Composite Rating:
               </span>
               <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                Goal: 86.12+
+                Goal: {recruitingGoals.compositeRatingGoal ?? 86.12}+
               </div>
             </div>
             <div

@@ -94,6 +94,8 @@ function PlayerManagement() {
   const [assignments, setAssignments] = useState([])
   const [duplicateWarning, setDuplicateWarning] = useState(null)
   const [photoUploading, setPhotoUploading] = useState(false)
+  const [formErrors, setFormErrors] = useState({})
+  const [editErrors, setEditErrors] = useState({})
   const photoInputRef = useRef(null)
   const [form, setForm] = useState({
     name: '',
@@ -135,8 +137,8 @@ function PlayerManagement() {
   const filteredPlayers = useMemo(() => {
     return players.filter((player) => {
       // HS Players only: filter out JUCO and Transfer players
-      if (player.isJuco === true || player.is_juco === true) return false
-      if (player.isTransferWishlist === true || player.is_transfer_wishlist === true) return false
+      if (player.isJuco === true) return false
+      if (player.isTransferWishlist === true) return false
 
       // Search filter
       if (searchQuery) {
@@ -210,12 +212,26 @@ function PlayerManagement() {
     return assignments.filter((a) => a.player_id === playerId)
   }
 
+  function validatePlayerForm(f) {
+    const errors = {}
+    if (!f.name?.trim()) errors.name = 'Name is required'
+    if ((f.recruitingStatuses || []).includes('Offered') && !f.offeredDate)
+      errors.offeredDate = 'Offered date is required'
+    if (
+      ((f.recruitingStatuses || []).includes('Committed') || (f.recruitingStatuses || []).includes('Signed')) &&
+      !f.committedDate
+    )
+      errors.committedDate = 'Committed date is required'
+    return errors
+  }
+
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target
     setForm((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }))
+    if (name in formErrors) setFormErrors((prev) => ({ ...prev, [name]: undefined }))
   }
 
   const normalizeStatuses = (statuses) => {
@@ -259,17 +275,9 @@ function PlayerManagement() {
 
   const handleAddPlayer = async (event) => {
     event.preventDefault()
-    if (!form.name.trim()) return
-
-    // Validation: Offered status requires offeredDate
-    if (form.recruitingStatuses.includes('Offered') && !form.offeredDate) {
-      alert('Please provide an Offered Date when status includes "Offered"')
-      return
-    }
-
-    // Validation: Committed or Signed status requires committedDate
-    if ((form.recruitingStatuses.includes('Committed') || form.recruitingStatuses.includes('Signed')) && !form.committedDate) {
-      alert('Please provide a Committed Date when status includes "Committed" or "Signed"')
+    const errors = validatePlayerForm(form)
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
       return
     }
 
@@ -387,8 +395,8 @@ function PlayerManagement() {
       committedSchool: player.committedSchool || '',
       committedDate: player.committedDate || '',
       compositeRating: player.compositeRating || '',
-      isLds: player.isLds || player.is_lds || false,
-      offeredDate: player.offeredDate || player.offered_date || '',
+      isLds: player.isLds || false,
+      offeredDate: player.offeredDate || '',
     })
   }
 
@@ -400,16 +408,9 @@ function PlayerManagement() {
 
   const saveEditing = async () => {
     if (!editingPlayerId || !editForm) return
-
-    // Validation: Offered status requires offeredDate
-    if ((editForm.recruitingStatuses || []).includes('Offered') && !editForm.offeredDate) {
-      alert('Please provide an Offered Date when status includes "Offered"')
-      return
-    }
-
-    // Validation: Committed or Signed status requires committedDate
-    if (((editForm.recruitingStatuses || []).includes('Committed') || (editForm.recruitingStatuses || []).includes('Signed')) && !editForm.committedDate) {
-      alert('Please provide a Committed Date when status includes "Committed" or "Signed"')
+    const errors = validatePlayerForm(editForm)
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors)
       return
     }
 
@@ -441,6 +442,7 @@ function PlayerManagement() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }))
+    if (name in editErrors) setEditErrors((prev) => ({ ...prev, [name]: undefined }))
   }
 
   const handlePhotoUpload = async (playerId, file) => {
@@ -546,6 +548,7 @@ function PlayerManagement() {
               onChange={handleChange}
               placeholder="Player name"
             />
+            {formErrors.name && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.name}</span>}
           </label>
           <label className="field">
             Position
@@ -644,6 +647,7 @@ function PlayerManagement() {
                 onChange={handleChange}
                 required
               />
+              {formErrors.offeredDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.offeredDate}</span>}
             </label>
           ) : null}
           {(form.recruitingStatuses.includes('Committed') || form.recruitingStatuses.includes('Signed')) ? (
@@ -656,6 +660,7 @@ function PlayerManagement() {
                 onChange={handleChange}
                 required
               />
+              {formErrors.committedDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.committedDate}</span>}
             </label>
           ) : null}
           {form.recruitingStatuses.includes('Committed Elsewhere') ? (
@@ -875,6 +880,7 @@ function PlayerManagement() {
                         <label className="field">
                           Name
                           <input name="name" value={editForm.name} onChange={handleEditChange} />
+                          {editErrors.name && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{editErrors.name}</span>}
                         </label>
                         <label className="field">
                           Position
@@ -947,6 +953,7 @@ function PlayerManagement() {
                               onChange={handleEditChange}
                               required
                             />
+                            {editErrors.offeredDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{editErrors.offeredDate}</span>}
                           </label>
                         ) : null}
                         {((editForm.recruitingStatuses || []).includes('Committed') || (editForm.recruitingStatuses || []).includes('Signed')) ? (
@@ -959,6 +966,7 @@ function PlayerManagement() {
                               onChange={handleEditChange}
                               required
                             />
+                            {editErrors.committedDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{editErrors.committedDate}</span>}
                           </label>
                         ) : null}
                         {(editForm.recruitingStatuses || []).includes('Committed Elsewhere') ? (
@@ -1034,7 +1042,7 @@ function PlayerManagement() {
                               {parseFloat(player.compositeRating).toFixed(2)}
                             </span>
                           )}
-                          {(player.isLds || player.is_lds) && (
+                          {player.isLds && (
                             <span
                               style={{
                                 fontSize: '11px',

@@ -47,22 +47,23 @@ export async function getMentionedUsers(mentions) {
  * @param {string[]} mentionedUsernames - Array of mentioned usernames
  * @param {number} commenterId - ID of user who created the comment
  * @param {number} playerId - Player ID (for link)
+ * @param {Object} io - Socket.IO instance for real-time push
  */
-export async function createMentionNotifications(commentId, mentionedUsernames, commenterId, playerId = null) {
+export async function createMentionNotifications(commentId, mentionedUsernames, commenterId, playerId = null, io = null) {
   if (mentionedUsernames.length === 0) return
-  
+
   try {
     const users = await getMentionedUsers(mentionedUsernames)
-    
+
     // Create notifications for mentioned users
     for (const user of users) {
       // Don't notify the commenter if they mentioned themselves
       if (user.id === commenterId) continue
-      
+
       // Create notification
-      await pool.query(
+      const notifResult = await pool.query(
         `INSERT INTO notifications (user_id, title, message, type, related_player_id, read)
-         VALUES ($1, $2, $3, $4, $5, false)`,
+         VALUES ($1, $2, $3, $4, $5, false) RETURNING *`,
         [
           user.id,
           'You were mentioned',
@@ -71,7 +72,12 @@ export async function createMentionNotifications(commentId, mentionedUsernames, 
           playerId || null,
         ]
       )
-      
+
+      // Push via WebSocket if available
+      if (io && notifResult.rows[0]) {
+        io.to(`user:${user.id}`).emit('notification:new', notifResult.rows[0])
+      }
+
       // Track mention
       await pool.query(
         'INSERT INTO comment_mentions (comment_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',

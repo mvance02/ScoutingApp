@@ -58,7 +58,7 @@ router.post('/', async (req, res, next) => {
 
     // Create mention notifications
     if (mentions.length > 0) {
-      await createMentionNotifications(newComment.id, mentions, req.user.id, player_id)
+      await createMentionNotifications(newComment.id, mentions, req.user.id, player_id, req.app.get('io'))
     }
 
     // Fetch with author info

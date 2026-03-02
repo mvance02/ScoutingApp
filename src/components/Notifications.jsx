@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Bell, X, Check, CheckCheck, Inbox, ChevronLeft, ChevronRight } from 'lucide-react'
 import { notificationsApi } from '../utils/api'
+import { useWebSocket } from '../hooks/useWebSocket'
 import EmptyState from './EmptyState'
 
 function Notifications({ onClose }) {
@@ -12,9 +13,20 @@ function Notifications({ onClose }) {
 
   useEffect(() => {
     loadNotifications()
-    const interval = setInterval(loadNotifications, 30000) // Poll every 30s
-    return () => clearInterval(interval)
   }, [])
+
+  // Real-time notification push via WebSocket
+  useWebSocket({
+    onNotification: (notification) => {
+      setNotifications((prev) => {
+        if (prev.some((n) => n.id === notification.id)) return prev
+        return [notification, ...prev]
+      })
+      if (!notification.read) {
+        setUnreadCount((prev) => prev + 1)
+      }
+    },
+  })
 
   const loadNotifications = async () => {
     try {

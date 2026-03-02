@@ -49,6 +49,9 @@ export function initializeWebSocket(httpServer) {
   io.on('connection', (socket) => {
     console.log(`User ${socket.userName} (${socket.userId}) connected`)
 
+    // Join personal room so we can send targeted notifications
+    socket.join(`user:${socket.userId}`)
+
     // Join game room
     socket.on('join:game', (gameId) => {
       socket.join(`game:${gameId}`)

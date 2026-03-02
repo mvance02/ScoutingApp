@@ -84,7 +84,7 @@ function PlayerAvatar({ name, url, size = 40 }) {
   )
 }
 
-function TransferWishlist() {
+function PlayerBoard() {
   const [players, setPlayers] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -107,6 +107,9 @@ function TransferWishlist() {
   const [assignments, setAssignments] = useState([])
   const [duplicateWarning, setDuplicateWarning] = useState(null)
   const [photoUploading, setPhotoUploading] = useState(false)
+  const [formErrors, setFormErrors] = useState({})
+  const [editErrors, setEditErrors] = useState({})
+  const [typeFilter, setTypeFilter] = useState('All') // 'All' | 'JUCO' | 'Transfer'
   const photoInputRef = useRef(null)
   const [form, setForm] = useState({
     name: '',
@@ -133,6 +136,7 @@ function TransferWishlist() {
     portalStatus: '',
     transferReason: '',
     otherOffers: [],
+    playerType: 'JUCO',
   })
 
   useEffect(() => {
@@ -156,9 +160,12 @@ function TransferWishlist() {
 
   const filteredPlayers = useMemo(() => {
     return players.filter((player) => {
-      // Transfer Wishlist Players only: show only Transfer players
-      if (player.isJuco === true || player.is_juco === true) return false
-      if (player.isTransferWishlist !== true && player.is_transfer_wishlist !== true) return false
+      // PlayerBoard: show JUCO and/or Transfer players, filtered by typeFilter
+      const isJuco = player.isJuco === true
+      const isTransfer = player.isTransferWishlist === true
+      if (!isJuco && !isTransfer) return false // exclude HS players
+      if (typeFilter === 'JUCO' && !isJuco) return false
+      if (typeFilter === 'Transfer' && !isTransfer) return false
 
       // Search filter
       if (searchQuery) {
@@ -191,7 +198,7 @@ function TransferWishlist() {
         if (player.gradYear !== gradYearFilter) return false
       }
 
-      // Years of eligibility left filter (Transfer-only field)
+      // Years of eligibility left filter (JUCO-only field)
       if (yearsLeftFilter) {
         const yearsLeft = player.eligibilityYearsLeft != null ? Number(player.eligibilityYearsLeft) : null
         const target = Number(yearsLeftFilter)
@@ -244,6 +251,7 @@ function TransferWishlist() {
     compositeRatingMin,
     compositeRatingMax,
     currentSchoolLevelFilter,
+    typeFilter,
   ])
 
   // Pagination
@@ -258,12 +266,26 @@ function TransferWishlist() {
     return assignments.filter((a) => a.player_id === playerId)
   }
 
+  function validatePlayerForm(f) {
+    const errors = {}
+    if (!f.name?.trim()) errors.name = 'Name is required'
+    if ((f.recruitingStatuses || []).includes('Offered') && !f.offeredDate)
+      errors.offeredDate = 'Offered date is required'
+    if (
+      ((f.recruitingStatuses || []).includes('Committed') || (f.recruitingStatuses || []).includes('Signed')) &&
+      !f.committedDate
+    )
+      errors.committedDate = 'Committed date is required'
+    return errors
+  }
+
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target
     setForm((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }))
+    if (name in formErrors) setFormErrors((prev) => ({ ...prev, [name]: undefined }))
   }
 
   const normalizeStatuses = (statuses) => {
@@ -307,17 +329,10 @@ function TransferWishlist() {
 
   const handleAddPlayer = async (event) => {
     event.preventDefault()
-    if (!form.name.trim()) return
 
-    // Validation: Offered status requires offeredDate
-    if (form.recruitingStatuses.includes('Offered') && !form.offeredDate) {
-      alert('Please provide an Offered Date when status includes "Offered"')
-      return
-    }
-
-    // Validation: Committed or Signed status requires committedDate
-    if ((form.recruitingStatuses.includes('Committed') || form.recruitingStatuses.includes('Signed')) && !form.committedDate) {
-      alert('Please provide a Committed Date when status includes "Committed" or "Signed"')
+    const errors = validatePlayerForm(form)
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
       return
     }
 
@@ -347,8 +362,8 @@ function TransferWishlist() {
       committedSchool: form.committedSchool.trim(),
       committedDate: form.committedDate,
       compositeRating: form.compositeRating ? parseFloat(form.compositeRating) : null,
-      isJuco: false,
-      isTransferWishlist: true,
+      isJuco: form.playerType === 'JUCO',
+      isTransferWishlist: form.playerType === 'Transfer',
       isLds: form.isLds || false,
       offeredDate: form.offeredDate || null,
       eligibilityYearsLeft: form.eligibilityYearsLeft !== '' ? Number(form.eligibilityYearsLeft) : null,
@@ -399,6 +414,7 @@ function TransferWishlist() {
       portalStatus: '',
       transferReason: '',
       otherOffers: [],
+      playerType: 'JUCO',
     })
     setStatusMenuOpen(false)
     setDuplicateWarning(null)
@@ -456,8 +472,8 @@ function TransferWishlist() {
       committedSchool: player.committedSchool || '',
       committedDate: player.committedDate || '',
       compositeRating: player.compositeRating || '',
-      isLds: player.isLds || player.is_lds || false,
-      offeredDate: player.offeredDate || player.offered_date || '',
+      isLds: player.isLds || false,
+      offeredDate: player.offeredDate || '',
       eligibilityYearsLeft: player.eligibilityYearsLeft ?? '',
       recruitingContext: player.recruitingContext || '',
       immediateImpactTag: player.immediateImpactTag || '',
@@ -478,15 +494,9 @@ function TransferWishlist() {
   const saveEditing = async () => {
     if (!editingPlayerId || !editForm) return
 
-    // Validation: Offered status requires offeredDate
-    if ((editForm.recruitingStatuses || []).includes('Offered') && !editForm.offeredDate) {
-      alert('Please provide an Offered Date when status includes "Offered"')
-      return
-    }
-
-    // Validation: Committed or Signed status requires committedDate
-    if (((editForm.recruitingStatuses || []).includes('Committed') || (editForm.recruitingStatuses || []).includes('Signed')) && !editForm.committedDate) {
-      alert('Please provide a Committed Date when status includes "Committed" or "Signed"')
+    const errors = validatePlayerForm(editForm)
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors)
       return
     }
 
@@ -518,6 +528,7 @@ function TransferWishlist() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }))
+    if (name in editErrors) setEditErrors((prev) => ({ ...prev, [name]: undefined }))
   }
 
   const handlePhotoUpload = async (playerId, file) => {
@@ -582,7 +593,7 @@ function TransferWishlist() {
         : '',
       notes: player.notes,
     }))
-    exportToCSV(rows, 'transfer-players.csv')
+    exportToCSV(rows, `prospects-${typeFilter.toLowerCase()}.csv`)
   }
 
   const getStatusColor = (status) => {
@@ -612,8 +623,8 @@ function TransferWishlist() {
     <div className="page">
       <header className="page-header">
         <div>
-          <h2>Transfer Wishlist</h2>
-          <p>Manage transfer portal wishlist players.</p>
+          <h2>Prospects</h2>
+          <p>Manage junior college players.</p>
         </div>
         <button className="btn-secondary" onClick={exportPlayers}>
           <Download size={16} />
@@ -622,7 +633,7 @@ function TransferWishlist() {
       </header>
 
       <section className="panel">
-        <h3>Add Transfer Player</h3>
+        <h3>Add JUCO Player</h3>
         <form className="form-grid" onSubmit={handleAddPlayer}>
           <label className="field">
             Name
@@ -632,6 +643,7 @@ function TransferWishlist() {
               onChange={handleChange}
               placeholder="Player name"
             />
+            {formErrors.name && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.name}</span>}
           </label>
           <label className="field">
             Position
@@ -675,7 +687,7 @@ function TransferWishlist() {
               name="currentSchoolLevel"
               value={form.currentSchoolLevel}
               onChange={handleChange}
-              placeholder="P4, G5, FCS, D2, etc."
+              placeholder="e.g. JUCO D1, JUCO D2"
             />
           </label>
           <label className="field">
@@ -760,6 +772,7 @@ function TransferWishlist() {
                 onChange={handleChange}
                 required
               />
+              {formErrors.offeredDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.offeredDate}</span>}
             </label>
           ) : null}
           {(form.recruitingStatuses.includes('Committed') || form.recruitingStatuses.includes('Signed')) ? (
@@ -772,6 +785,7 @@ function TransferWishlist() {
                 onChange={handleChange}
                 required
               />
+              {formErrors.committedDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.committedDate}</span>}
             </label>
           ) : null}
           {form.recruitingStatuses.includes('Committed Elsewhere') ? (
@@ -859,6 +873,17 @@ function TransferWishlist() {
               onChange={handleChange}
               placeholder="Academic, off-field, injury risk, etc."
             />
+          </label>
+          <label className="field">
+            Type
+            <select
+              name="playerType"
+              value={form.playerType || 'JUCO'}
+              onChange={handleChange}
+            >
+              <option value="JUCO">JUCO</option>
+              <option value="Transfer">Transfer</option>
+            </select>
           </label>
           <label className="checkbox" style={{ gridColumn: '1 / -1' }}>
             <input
@@ -958,7 +983,7 @@ function TransferWishlist() {
 
       <section className="panel">
         <h3 style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          Transfer Players ({filteredPlayers.length})
+          JUCO Players ({filteredPlayers.length})
           {(() => {
             const rated = filteredPlayers.filter((p) => p.compositeRating != null && !isNaN(parseFloat(p.compositeRating)))
             if (rated.length === 0) return null
@@ -970,6 +995,18 @@ function TransferWishlist() {
             )
           })()}
         </h3>
+
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          {['All', 'JUCO', 'Transfer'].map((t) => (
+            <button
+              key={t}
+              className={`analytics-filter-pill${typeFilter === t ? ' active' : ''}`}
+              onClick={() => { setTypeFilter(t); setCurrentPage(1) }}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
 
         <div className="search-filters">
           <div className="field-inline">
@@ -1074,8 +1111,8 @@ function TransferWishlist() {
         )}
         {filteredPlayers.length === 0 ? (
           players.length === 0
-            ? <EmptyState icon={UserPlus} title="No transfer players yet" subtitle="Add one to start your transfer wishlist." />
-            : <EmptyState icon={SearchX} title="No transfer players match your filters" subtitle="Try adjusting your search or filters." />
+            ? <EmptyState icon={UserPlus} title="No JUCO players yet" subtitle="Add one to start your JUCO watchlist." />
+            : <EmptyState icon={SearchX} title="No JUCO players match your filters" subtitle="Try adjusting your search or filters." />
         ) : (
           <>
             <ul className="list">
@@ -1119,6 +1156,7 @@ function TransferWishlist() {
                         <label className="field">
                           Name
                           <input name="name" value={editForm.name} onChange={handleEditChange} />
+                          {editErrors.name && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{editErrors.name}</span>}
                         </label>
                         <label className="field">
                           Position
@@ -1137,6 +1175,14 @@ function TransferWishlist() {
                           <input name="school" value={editForm.school} onChange={handleEditChange} />
                         </label>
                         <label className="field">
+                          Current School Level
+                          <input
+                            name="currentSchoolLevel"
+                            value={editForm.currentSchoolLevel}
+                            onChange={handleEditChange}
+                          />
+                        </label>
+                        <label className="field">
                           State (Current School)
                           <input name="state" value={editForm.state} onChange={handleEditChange} />
                         </label>
@@ -1147,6 +1193,17 @@ function TransferWishlist() {
                         <label className="field">
                           Grad Year
                           <input name="gradYear" value={editForm.gradYear} onChange={handleEditChange} />
+                        </label>
+                        <label className="field">
+                          Eligibility Years Left
+                          <input
+                            type="number"
+                            name="eligibilityYearsLeft"
+                            value={editForm.eligibilityYearsLeft}
+                            onChange={handleEditChange}
+                            min="0"
+                            max="6"
+                          />
                         </label>
                         <div className="field">
                           Pipeline Statuses
@@ -1195,6 +1252,7 @@ function TransferWishlist() {
                               onChange={handleEditChange}
                               required
                             />
+                            {editErrors.offeredDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{editErrors.offeredDate}</span>}
                           </label>
                         ) : null}
                         {((editForm.recruitingStatuses || []).includes('Committed') || (editForm.recruitingStatuses || []).includes('Signed')) ? (
@@ -1207,6 +1265,7 @@ function TransferWishlist() {
                               onChange={handleEditChange}
                               required
                             />
+                            {editErrors.committedDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{editErrors.committedDate}</span>}
                           </label>
                         ) : null}
                         {(editForm.recruitingStatuses || []).includes('Committed Elsewhere') ? (
@@ -1234,6 +1293,20 @@ function TransferWishlist() {
                             step="0.01"
                           />
                         </label>
+                        <label className="field">
+                          Portal Status
+                          <select
+                            name="portalStatus"
+                            value={editForm.portalStatus || ''}
+                            onChange={handleEditChange}
+                          >
+                            {PORTAL_STATUSES.map((status) => (
+                              <option key={status || 'none'} value={status}>
+                                {status || 'Not specified'}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
                         <label className="checkbox" style={{ gridColumn: '1 / -1' }}>
                           <input
                             type="checkbox"
@@ -1247,6 +1320,109 @@ function TransferWishlist() {
                           Notes
                           <input name="notes" value={editForm.notes} onChange={handleEditChange} />
                         </label>
+                        <label className="field" style={{ gridColumn: '1 / -1' }}>
+                          Reason for Transferring
+                          <input
+                            name="transferReason"
+                            value={editForm.transferReason || ''}
+                            onChange={handleEditChange}
+                          />
+                        </label>
+                        <label className="field" style={{ gridColumn: '1 / -1' }}>
+                          Recruiting Context
+                          <input
+                            name="recruitingContext"
+                            value={editForm.recruitingContext || ''}
+                            onChange={handleEditChange}
+                          />
+                        </label>
+                        <label className="field" style={{ gridColumn: '1 / -1' }}>
+                          Immediate Impact Tag
+                          <input
+                            name="immediateImpactTag"
+                            value={editForm.immediateImpactTag || ''}
+                            onChange={handleEditChange}
+                          />
+                        </label>
+                        <label className="field" style={{ gridColumn: '1 / -1' }}>
+                          Risk Notes
+                          <input
+                            name="riskNotes"
+                            value={editForm.riskNotes || ''}
+                            onChange={handleEditChange}
+                          />
+                        </label>
+                        <div className="field" style={{ gridColumn: '1 / -1' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>Other Offers / Competitors</span>
+                            <button
+                              type="button"
+                              className="btn-ghost"
+                              onClick={() =>
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  otherOffers: [
+                                    ...(prev.otherOffers || []),
+                                    { school: '', interest: 'High' },
+                                  ],
+                                }))
+                              }
+                            >
+                              <Plus size={14} />
+                              Add Competitor
+                            </button>
+                          </div>
+                          {(editForm.otherOffers || []).length === 0 ? (
+                            <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                              Track main competing schools and how serious they are.
+                            </p>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                              {editForm.otherOffers.map((offer, index) => (
+                                <div
+                                  key={index}
+                                  style={{ display: 'flex', gap: '8px', alignItems: 'center' }}
+                                >
+                                  <input
+                                    style={{ flex: 1 }}
+                                    placeholder="School"
+                                    value={offer.school}
+                                    onChange={(e) => {
+                                      const next = [...(editForm.otherOffers || [])]
+                                      next[index] = { ...next[index], school: e.target.value }
+                                      setEditForm((prev) => ({ ...prev, otherOffers: next }))
+                                    }}
+                                  />
+                                  <select
+                                    value={offer.interest}
+                                    onChange={(e) => {
+                                      const next = [...(editForm.otherOffers || [])]
+                                      next[index] = { ...next[index], interest: e.target.value }
+                                      setEditForm((prev) => ({ ...prev, otherOffers: next }))
+                                    }}
+                                  >
+                                    {INTEREST_LEVELS.map((lvl) => (
+                                      <option key={lvl} value={lvl}>
+                                        {lvl}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    type="button"
+                                    className="btn-ghost danger"
+                                    onClick={() => {
+                                      const next = [...(editForm.otherOffers || [])]
+                                      next.splice(index, 1)
+                                      setEditForm((prev) => ({ ...prev, otherOffers: next }))
+                                    }}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="row-actions">
                         <button className="btn-primary" onClick={saveEditing}>
@@ -1282,7 +1458,7 @@ function TransferWishlist() {
                               {parseFloat(player.compositeRating).toFixed(2)}
                             </span>
                           )}
-                          {(player.isLds || player.is_lds) && (
+                          {player.isLds && (
                             <span
                               style={{
                                 fontSize: '11px',
@@ -1413,4 +1589,4 @@ function TransferWishlist() {
   )
 }
 
-export default TransferWishlist
+export default PlayerBoard

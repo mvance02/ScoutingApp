@@ -36,9 +36,6 @@ function ActivityFeed({ limit = 20, compact = false }) {
 
   useEffect(() => {
     loadActivities()
-    // Poll every 30 seconds as backup
-    const interval = setInterval(loadActivities, 30000)
-    return () => clearInterval(interval)
   }, [limit])
 
   const loadActivities = async () => {

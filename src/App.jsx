@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom'
-import { Home, Users, Plus, Moon, Sun, HelpCircle, Settings, FileText, UserCheck, Bell, ClipboardList, BarChart3 } from 'lucide-react'
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom'
+import { Home, Users, Plus, Moon, Sun, HelpCircle, Settings, FileText, UserCheck, Bell, ClipboardList, BarChart3, MessageSquare, X } from 'lucide-react'
 import Dashboard from './components/Dashboard'
 import GameReview from './components/GameReview'
 import PlayerManagement from './components/PlayerManagement'
-import JUCOPlayers from './components/JUCOPlayers'
-import TransferWishlist from './components/TransferWishlist'
+import PlayerBoard from './components/PlayerBoard'
+import Chat from './components/Chat'
 import { createGame, isUsingFallback } from './utils/storage'
 import PlayerStats from './components/PlayerStats'
 import Login from './components/Login'
@@ -30,6 +30,7 @@ function App() {
   const [userShortcuts, setUserShortcuts] = useState(null)
   const [userCombos, setUserCombos] = useState(null)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
   const [showFallbackWarning, setShowFallbackWarning] = useState(false)
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme')
@@ -136,6 +137,8 @@ function App() {
           onShowShortcuts={() => setShortcutsModalOpen(true)}
           onShowSettings={() => setShortcutsSettingsOpen(true)}
           onShowNotifications={() => setNotificationsOpen(true)}
+          chatOpen={chatOpen}
+          onToggleChat={() => setChatOpen((prev) => !prev)}
         />
         <main className="main-content">
           <Routes>
@@ -146,8 +149,9 @@ function App() {
             <Route path="/player/:playerId/stats" element={<PlayerStats />} />
             <Route path="/recruits-report" element={<RecruitsReport />} />
             <Route path="/analytics" element={<Analytics />} />
-            <Route path="/juco-players" element={<JUCOPlayers />} />
-            <Route path="/transfer-players" element={<TransferWishlist />} />
+            <Route path="/prospects" element={<PlayerBoard />} />
+            <Route path="/juco-players" element={<Navigate to="/prospects" replace />} />
+            <Route path="/transfer-players" element={<Navigate to="/prospects" replace />} />
             {user?.role === 'admin' ? (
               <>
                 <Route path="/admin/users" element={<UserManagement />} />
@@ -181,12 +185,48 @@ function App() {
         {notificationsOpen && (
           <Notifications onClose={() => setNotificationsOpen(false)} />
         )}
+        {chatOpen && (
+          <div style={{
+            position: 'fixed',
+            right: 0,
+            top: 0,
+            width: '360px',
+            height: '100vh',
+            zIndex: 1000,
+            background: 'var(--color-bg-card)',
+            borderLeft: '1px solid var(--color-border)',
+            boxShadow: '-4px 0 20px rgba(0,0,0,0.15)',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 16px',
+              borderBottom: '1px solid var(--color-border)',
+              fontWeight: 600,
+              flexShrink: 0,
+            }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MessageSquare size={18} />
+                Team Chat
+              </span>
+              <button className="btn-ghost" onClick={() => setChatOpen(false)} title="Close chat">
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+              <Chat roomType="general" />
+            </div>
+          </div>
+        )}
       </div>
     </Router>
   )
 }
 
-function NavBar({ user, darkMode, onToggleDarkMode, onLogout, onShowShortcuts, onShowSettings, onShowNotifications }) {
+function NavBar({ user, darkMode, onToggleDarkMode, onLogout, onShowShortcuts, onShowSettings, onShowNotifications, chatOpen, onToggleChat }) {
   const navigate = useNavigate()
   const [activePath, setActivePath] = useState(window.location.pathname)
 
@@ -285,21 +325,21 @@ function NavBar({ user, darkMode, onToggleDarkMode, onLogout, onShowShortcuts, o
         </button>
         <div style={{ width: '100%', height: '1px', background: 'var(--color-border)', margin: '12px 0' }} />
         <Link
-          to="/juco-players"
-          className={activePath === '/juco-players' ? 'active' : ''}
-          onClick={() => setActivePath('/juco-players')}
+          to="/prospects"
+          className={activePath === '/prospects' ? 'active' : ''}
+          onClick={() => setActivePath('/prospects')}
         >
           <Users size={20} />
-          JUCO
+          Prospects
         </Link>
-        <Link
-          to="/transfer-players"
-          className={activePath === '/transfer-players' ? 'active' : ''}
-          onClick={() => setActivePath('/transfer-players')}
+        <button
+          className={`btn-ghost${chatOpen ? ' active' : ''}`}
+          onClick={onToggleChat}
+          title="Team Chat"
         >
-          <Users size={20} />
-          Transfer
-        </Link>
+          <MessageSquare size={20} />
+          Chat
+        </button>
         <button
           className="btn-ghost"
           onClick={onShowNotifications}

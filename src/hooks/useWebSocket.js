@@ -25,14 +25,15 @@ export function useWebSocket({
   onCommentUpdate = null,
   onChatMessage = null,
   onActivity = null,
+  onNotification = null,
 } = {}) {
   const socketRef = useRef(null)
-  const callbacksRef = useRef({ onStatUpdate, onPlayerUpdate, onCommentUpdate, onChatMessage, onActivity })
+  const callbacksRef = useRef({ onStatUpdate, onPlayerUpdate, onCommentUpdate, onChatMessage, onActivity, onNotification })
 
   // Update callbacks ref when they change
   useEffect(() => {
-    callbacksRef.current = { onStatUpdate, onPlayerUpdate, onCommentUpdate, onChatMessage, onActivity }
-  }, [onStatUpdate, onPlayerUpdate, onCommentUpdate, onChatMessage, onActivity])
+    callbacksRef.current = { onStatUpdate, onPlayerUpdate, onCommentUpdate, onChatMessage, onActivity, onNotification }
+  }, [onStatUpdate, onPlayerUpdate, onCommentUpdate, onChatMessage, onActivity, onNotification])
 
   useEffect(() => {
     const token = localStorage.getItem('auth_token')
@@ -106,6 +107,11 @@ export function useWebSocket({
     // Activity feed events
     socket.on('activity:new', (data) => {
       callbacksRef.current.onActivity?.(data)
+    })
+
+    // Notification events
+    socket.on('notification:new', (data) => {
+      callbacksRef.current.onNotification?.(data)
     })
 
     socketRef.current = socket

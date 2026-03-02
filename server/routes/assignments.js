@@ -168,11 +168,15 @@ router.post('/', requireAdmin, async (req, res, next) => {
       notificationMessage = `You have been assigned to scout the ${position_group} position group.`
     }
 
-    await pool.query(
+    const notifResult = await pool.query(
       `INSERT INTO notifications (user_id, type, title, message, related_player_id, related_assignment_id)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
       [scout_id, 'assignment', notificationTitle, notificationMessage, player_id || null, newAssignment.id]
     )
+    const io = req.app.get('io')
+    if (io && notifResult.rows[0]) {
+      io.to(`user:${scout_id}`).emit('notification:new', notifResult.rows[0])
+    }
 
     // Fetch full assignment data for response
     const fullResult = await pool.query(

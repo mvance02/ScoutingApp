@@ -51,6 +51,33 @@ export const resetPasswordSchema = z.object({
 })
 
 // Player schemas
+const recruitingStatusEnum = z.enum([
+  'Watching',
+  'Evaluating',
+  'Interested',
+  'Priority',
+  'Offer',
+  'Offered',
+  'Committed',
+  'Committed Elsewhere',
+  'Signed',
+  'Passed',
+  'Not Interested',
+])
+
+const portalStatusEnum = z.enum([
+  'Not in portal',
+  'Expected to enter',
+  'In portal',
+  'Withdrew',
+  'Committed elsewhere',
+])
+
+const otherOfferSchema = z.object({
+  school: z.string().max(255),
+  interest: z.enum(['High', 'Medium', 'Low']),
+})
+
 export const createPlayerSchema = z.object({
   name: z.string().min(1, 'Name is required').max(255),
   position: z.string().max(50).optional().nullable(),
@@ -58,17 +85,32 @@ export const createPlayerSchema = z.object({
   defense_position: z.string().max(50).optional().nullable(),
   school: z.string().max(255).optional().nullable(),
   state: z.string().max(50).optional().nullable(),
+  home_state: z.string().max(50).optional().nullable(),
   grad_year: z.number().int().min(2000).max(2100).optional().nullable(),
   notes: z.string().max(10000).optional().nullable(),
   flagged: z.boolean().optional(),
   cut_up_completed: z.boolean().optional(),
-  recruiting_statuses: z.array(z.enum([
-    'Watching', 'Evaluating', 'Interested', 'Priority', 'Offer', 'Offered', 'Committed', 'Committed Elsewhere', 'Signed', 'Passed', 'Not Interested'
-  ])).optional(),
+  recruiting_statuses: z.array(recruitingStatusEnum).optional(),
   status_notes: z.string().max(5000).optional().nullable(),
   committed_school: z.string().max(255).optional().nullable(),
   committed_date: z.string().max(50).optional().nullable(),
   composite_rating: z.number().min(0).max(100).optional().nullable(),
+
+  // Player type flags
+  is_juco: z.boolean().optional(),
+  is_transfer_wishlist: z.boolean().optional(),
+  is_lds: z.boolean().optional().nullable(),
+  offered_date: z.string().max(50).optional().nullable(),
+
+  // JUCO-specific fields (used only when is_juco = true)
+  eligibility_years_left: z.number().int().min(0).max(6).optional().nullable(),
+  recruiting_context: z.string().max(10000).optional().nullable(),
+  immediate_impact_tag: z.string().max(100).optional().nullable(),
+  risk_notes: z.string().max(10000).optional().nullable(),
+  current_school_level: z.string().max(100).optional().nullable(),
+  portal_status: portalStatusEnum.optional().nullable(),
+  transfer_reason: z.string().max(10000).optional().nullable(),
+  other_offers: z.array(otherOfferSchema).optional().nullable(),
 })
 
 export const updatePlayerSchema = createPlayerSchema.partial()
@@ -110,7 +152,7 @@ export const updateNoteSchema = z.object({
 
 // Grades schemas
 export const upsertGradeSchema = z.object({
-  grade: z.string().max(10).optional().nullable(),
+  grade: z.enum(['A', 'B', 'C', 'F']).optional().nullable(),
   notes: z.string().max(5000).optional().nullable(),
   admin_notes: z.string().max(5000).optional().nullable(),
   game_score: z.string().max(50).optional().nullable(),

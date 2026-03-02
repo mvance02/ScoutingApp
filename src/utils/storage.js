@@ -64,6 +64,8 @@ function apiPlayerToApp(player) {
     defensePosition: player.defense_position || '',
     school: player.school || '',
     state: player.state || '',
+    homeState: player.home_state || '',
+    home_state: player.home_state || '',
     gradYear: player.grad_year || '',
     notes: player.notes || '',
     flagged: player.flagged ?? true,
@@ -74,6 +76,22 @@ function apiPlayerToApp(player) {
     committedSchool: player.committed_school || '',
     committedDate: player.committed_date || '',
     compositeRating: player.composite_rating || null,
+    isJuco: player.is_juco || false,
+    is_juco: player.is_juco || false,
+    isTransferWishlist: player.is_transfer_wishlist || false,
+    is_transfer_wishlist: player.is_transfer_wishlist || false,
+    isLds: player.is_lds || false,
+    is_lds: player.is_lds || false,
+    offeredDate: player.offered_date || '',
+    offered_date: player.offered_date || '',
+    eligibilityYearsLeft: player.eligibility_years_left ?? null,
+    recruitingContext: player.recruiting_context || '',
+    immediateImpactTag: player.immediate_impact_tag || '',
+    riskNotes: player.risk_notes || '',
+    currentSchoolLevel: player.current_school_level || '',
+    portalStatus: player.portal_status || '',
+    transferReason: player.transfer_reason || '',
+    otherOffers: Array.isArray(player.other_offers) ? player.other_offers : [],
     profilePictureUrl: player.profile_picture_url
       ? `${(import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '')}${player.profile_picture_url}`
       : null,
@@ -91,6 +109,7 @@ function appPlayerToApi(player) {
     defense_position: player.defensePosition || null,
     school: player.school || null,
     state: player.state || null,
+    home_state: player.homeState || player.home_state || null,
     grad_year: Number.isNaN(gradYear) ? null : gradYear,
     notes: player.notes || null,
     flagged: player.flagged,
@@ -100,6 +119,21 @@ function appPlayerToApi(player) {
     committed_school: player.committedSchool || null,
     committed_date: player.committedDate || null,
     composite_rating: Number.isNaN(compositeRating) ? null : compositeRating,
+    is_juco: player.isJuco !== undefined ? player.isJuco : (player.is_juco !== undefined ? player.is_juco : false),
+    is_transfer_wishlist: player.isTransferWishlist !== undefined ? player.isTransferWishlist : (player.is_transfer_wishlist !== undefined ? player.is_transfer_wishlist : false),
+    is_lds: player.isLds !== undefined ? player.isLds : (player.is_lds !== undefined ? player.is_lds : null),
+    offered_date: player.offeredDate || player.offered_date || null,
+    eligibility_years_left:
+      player.eligibilityYearsLeft !== undefined && player.eligibilityYearsLeft !== null
+        ? parseInt(player.eligibilityYearsLeft, 10)
+        : null,
+    recruiting_context: player.recruitingContext || null,
+    immediate_impact_tag: player.immediateImpactTag || null,
+    risk_notes: player.riskNotes || null,
+    current_school_level: player.currentSchoolLevel || null,
+    portal_status: player.portalStatus || null,
+    transfer_reason: player.transferReason || null,
+    other_offers: Array.isArray(player.otherOffers) ? player.otherOffers : null,
   }
 }
 

@@ -178,6 +178,18 @@ router.post('/', validate(createPlayerSchema), async (req, res, next) => {
       committed_school,
       committed_date,
       composite_rating,
+      is_juco = false,
+      is_transfer_wishlist = false,
+      is_lds,
+      offered_date,
+      eligibility_years_left,
+      recruiting_context,
+      immediate_impact_tag,
+      risk_notes,
+      current_school_level,
+      portal_status,
+      transfer_reason,
+      other_offers,
     } = req.body
 
     const recruiting_statuses = normalizeStatuses(rawStatuses)
@@ -187,10 +199,71 @@ router.post('/', validate(createPlayerSchema), async (req, res, next) => {
       recruiting_statuses.includes('Committed Elsewhere') ? (committed_date || null) : null
 
     const result = await pool.query(
-      `INSERT INTO players (name, position, offense_position, defense_position, school, state, grad_year, notes, flagged, cut_up_completed, recruiting_statuses, status_notes, committed_school, committed_date, composite_rating)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      `INSERT INTO players (
+         name,
+         position,
+         offense_position,
+         defense_position,
+         school,
+         state,
+         home_state,
+         grad_year,
+         notes,
+         flagged,
+         cut_up_completed,
+         recruiting_statuses,
+         status_notes,
+         committed_school,
+         committed_date,
+         composite_rating,
+         is_juco,
+         is_transfer_wishlist,
+         is_lds,
+         offered_date,
+         eligibility_years_left,
+         recruiting_context,
+         immediate_impact_tag,
+         risk_notes,
+         current_school_level,
+         portal_status,
+         transfer_reason,
+         other_offers
+       )
+       VALUES (
+         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+         $11, $12, $13, $14, $15, $16, $17, $18, $19,
+         $20, $21, $22, $23, $24, $25, $26, $27, $28
+       )
        RETURNING *`,
-      [name, position, offense_position, defense_position, school, state, grad_year, notes, flagged, cut_up_completed, recruiting_statuses, status_notes, effectiveCommittedSchool, effectiveCommittedDate, composite_rating || null]
+      [
+        name,
+        position,
+        offense_position,
+        defense_position,
+        school,
+        state,
+        grad_year,
+        notes,
+        flagged,
+        cut_up_completed,
+        recruiting_statuses,
+        status_notes,
+        effectiveCommittedSchool,
+        effectiveCommittedDate,
+        composite_rating || null,
+        is_juco || false,
+        is_transfer_wishlist || false,
+        is_lds || null,
+        offered_date || null,
+        eligibility_years_left ?? null,
+        recruiting_context || null,
+        immediate_impact_tag || null,
+        risk_notes || null,
+        current_school_level || null,
+        portal_status || null,
+        transfer_reason || null,
+        other_offers || null,
+      ]
     )
 
     const newPlayer = result.rows[0]
@@ -230,6 +303,7 @@ router.put('/:id', validate(updatePlayerSchema), async (req, res, next) => {
       defense_position,
       school,
       state,
+      home_state,
       grad_year,
       notes,
       flagged,
@@ -239,6 +313,18 @@ router.put('/:id', validate(updatePlayerSchema), async (req, res, next) => {
       committed_school,
       committed_date,
       composite_rating,
+      is_juco,
+      is_transfer_wishlist,
+      is_lds,
+      offered_date,
+      eligibility_years_left,
+      recruiting_context,
+      immediate_impact_tag,
+      risk_notes,
+      current_school_level,
+      portal_status,
+      transfer_reason,
+      other_offers,
     } = req.body
 
     // Get current player for audit and status tracking
@@ -279,17 +365,30 @@ router.put('/:id', validate(updatePlayerSchema), async (req, res, next) => {
            defense_position = COALESCE($4, defense_position),
            school = COALESCE($5, school),
            state = COALESCE($6, state),
-           grad_year = COALESCE($7, grad_year),
-           notes = COALESCE($8, notes),
-           flagged = COALESCE($9, flagged),
-           cut_up_completed = COALESCE($10, cut_up_completed),
-           recruiting_statuses = COALESCE($11, recruiting_statuses),
-           status_notes = COALESCE($12, status_notes),
-           committed_school = $14,
-           committed_date = $15,
-           composite_rating = COALESCE($16, composite_rating),
-           status_updated_at = CASE WHEN $11 IS NOT NULL AND $11::text != recruiting_statuses::text THEN CURRENT_TIMESTAMP ELSE status_updated_at END
-       WHERE id = $13
+           home_state = COALESCE($7, home_state),
+           grad_year = COALESCE($8, grad_year),
+           notes = COALESCE($9, notes),
+           flagged = COALESCE($10, flagged),
+           cut_up_completed = COALESCE($11, cut_up_completed),
+           recruiting_statuses = COALESCE($12, recruiting_statuses),
+           status_notes = COALESCE($13, status_notes),
+           committed_school = $15,
+           committed_date = $16,
+           composite_rating = COALESCE($17, composite_rating),
+           is_juco = COALESCE($18, is_juco),
+           is_transfer_wishlist = COALESCE($19, is_transfer_wishlist),
+           is_lds = CASE WHEN $20 IS NOT NULL THEN $20 ELSE is_lds END,
+           offered_date = CASE WHEN $21 IS NOT NULL THEN $21 ELSE offered_date END,
+           eligibility_years_left = COALESCE($22, eligibility_years_left),
+           recruiting_context = COALESCE($23, recruiting_context),
+           immediate_impact_tag = COALESCE($24, immediate_impact_tag),
+           risk_notes = COALESCE($25, risk_notes),
+           current_school_level = COALESCE($26, current_school_level),
+           portal_status = COALESCE($27, portal_status),
+           transfer_reason = COALESCE($28, transfer_reason),
+           other_offers = COALESCE($29, other_offers),
+           status_updated_at = CASE WHEN $12 IS NOT NULL AND $12::text != recruiting_statuses::text THEN CURRENT_TIMESTAMP ELSE status_updated_at END
+       WHERE id = $14
        RETURNING *`,
       [
         name,
@@ -298,6 +397,7 @@ router.put('/:id', validate(updatePlayerSchema), async (req, res, next) => {
         defense_position,
         school,
         state,
+        home_state || null,
         grad_year,
         notes,
         flagged,
@@ -308,6 +408,18 @@ router.put('/:id', validate(updatePlayerSchema), async (req, res, next) => {
         effectiveCommittedSchool,
         effectiveCommittedDate,
         composite_rating !== undefined ? composite_rating : null,
+        is_juco !== undefined ? is_juco : null,
+        is_transfer_wishlist !== undefined ? is_transfer_wishlist : null,
+        is_lds !== undefined ? is_lds : null,
+        offered_date !== undefined ? offered_date : null,
+        eligibility_years_left ?? null,
+        recruiting_context || null,
+        immediate_impact_tag || null,
+        risk_notes || null,
+        current_school_level || null,
+        portal_status || null,
+        transfer_reason || null,
+        other_offers || null,
       ]
     )
 

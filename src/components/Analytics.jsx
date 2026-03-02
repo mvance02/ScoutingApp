@@ -5,7 +5,7 @@ import {
   PieChart, Pie, ReferenceLine,
 } from 'recharts'
 import { loadPlayers } from '../utils/storage'
-import { playersApi, recruitsApi, performancesApi } from '../utils/api'
+import { playersApi, recruitsApi, performancesApi, recruitingGoalsApi } from '../utils/api'
 import { exportAnalyticsDashboardPDF } from '../utils/exportUtils'
 
 const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'DE', 'LB', 'C', 'S', 'K', 'P']
@@ -13,7 +13,7 @@ const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'DE', 'LB', 'C', 'S'
 const BYU_BLUE = '#002E5D'
 const BYU_BLUE_LIGHT = '#0062B8'
 const BYU_BLUE_TINT = '#E8EEF7'
-const COMPOSITE_GOAL = 88.04
+const COMPOSITE_GOAL = 86.12
 
 const STATUS_COLORS = {
   COMMITTED: '#16a34a',
@@ -79,8 +79,15 @@ const DEMO_TOP_PLAYERS = {
 
 // Helper to get recruiting statuses (handles both array and single value)
 function getStatuses(player) {
+  // Check all possible field names and formats
+  if (Array.isArray(player.recruitingStatuses)) {
+    return player.recruitingStatuses
+  }
   if (Array.isArray(player.recruiting_statuses)) {
     return player.recruiting_statuses
+  }
+  if (player.recruitingStatuses && !Array.isArray(player.recruitingStatuses)) {
+    return [player.recruitingStatuses]
   }
   if (player.recruiting_status) {
     return [player.recruiting_status]
@@ -94,13 +101,24 @@ function getStatuses(player) {
 // Helper to check if player is committed (case-insensitive)
 function isCommitted(player) {
   const statuses = getStatuses(player).map(s => s.toLowerCase())
-  return statuses.includes('committed') || statuses.includes('signed')
+  // Check for committed/signed, but exclude "committed elsewhere"
+  const hasCommitted = statuses.some(s => s === 'committed' || s === 'signed')
+  const hasCommittedElsewhere = statuses.some(s => s.includes('committed elsewhere') || s.includes('elsewhere'))
+  return hasCommitted && !hasCommittedElsewhere
 }
 
 // Helper to check if player is offered (case-insensitive)
+// Check current status, offered_date, and recruitingStatuses array
 function isOffered(player) {
   const statuses = getStatuses(player).map(s => s.toLowerCase())
-  return statuses.includes('offered') || statuses.includes('offer')
+  const hasOfferedStatus = statuses.some(s => s === 'offered' || s === 'offer')
+  const hasOfferedDate = !!(player.offeredDate || player.offered_date)
+  const hasOfferedInArray = Array.isArray(player.recruitingStatuses) && 
+                           player.recruitingStatuses.some(s => {
+                             const str = String(s).toLowerCase().trim()
+                             return str === 'offered' || str === 'offer'
+                           })
+  return hasOfferedStatus || hasOfferedDate || hasOfferedInArray
 }
 
 // Helper to get player position
@@ -161,34 +179,63 @@ function Analytics() {
   const [loading, setLoading] = useState(true)
   const [classYearFilter, setClassYearFilter] = useState('all')
   const [isExporting, setIsExporting] = useState(false)
+  const [positionGoals, setPositionGoals] = useState({})
+  const [editingGoalPos, setEditingGoalPos] = useState(null)
+  const [editingGoalValue, setEditingGoalValue] = useState('')
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true)
       try {
-        const [playersData, recruitsData, breakoutData] = await Promise.all([
+        const [playersData, recruitsData, breakoutData, goalsData] = await Promise.all([
           loadPlayers(),
           recruitsApi.getAll().catch(() => []),
           performancesApi.getBreakoutPlayers().catch(() => ({ breakoutPlayers: [], isDemo: true })),
+          recruitingGoalsApi.get().catch(() => ({})),
         ])
         setPlayers(playersData)
         setRecruits(Array.isArray(recruitsData) ? recruitsData : [])
         setBreakoutPlayers(breakoutData.breakoutPlayers || [])
         setIsBreakoutDemo(breakoutData.isDemo || false)
+        setPositionGoals(goalsData && typeof goalsData === 'object' ? goalsData : {})
 
-        // Fetch status history for committed players
-        const committedPlayers = playersData.filter(isCommitted)
+        // Fetch status history only for players who need it:
+        // 1. Committed players (for time-to-commit calculation)
+        // 2. Players with "Committed Elsewhere" (for competitor schools analysis)
+        const hsPlayers = playersData.filter((p) => {
+          if (p.isJuco === true || p.is_juco === true) return false
+          if (p.isTransferWishlist === true || p.is_transfer_wishlist === true) return false
+          return true
+        })
+        
+        // Identify players who need status history
+        const playersNeedingHistory = hsPlayers.filter((p) => {
+          const statuses = getStatuses(p).map(s => s.toLowerCase())
+          const isCommittedPlayer = statuses.some(s => s === 'committed' || s === 'signed')
+          const isCommittedElsewhere = statuses.some(s => s.includes('committed elsewhere') || s.includes('elsewhere'))
+          return isCommittedPlayer || isCommittedElsewhere
+        })
+        
         const histories = {}
-        await Promise.all(
-          committedPlayers.map(async (p) => {
-            try {
-              const history = await playersApi.getStatusHistory(p.id)
-              histories[p.id] = history
-            } catch {
-              histories[p.id] = []
-            }
-          })
-        )
+        // Fetch status history with batching to avoid rate limits
+        const batchSize = 5
+        for (let i = 0; i < playersNeedingHistory.length; i += batchSize) {
+          const batch = playersNeedingHistory.slice(i, i + batchSize)
+          await Promise.all(
+            batch.map(async (p) => {
+              try {
+                const history = await playersApi.getStatusHistory(p.id)
+                histories[p.id] = history
+              } catch {
+                histories[p.id] = []
+              }
+            })
+          )
+          // Small delay between batches to avoid rate limiting
+          if (i + batchSize < playersNeedingHistory.length) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+          }
+        }
         setStatusHistories(histories)
       } catch (err) {
         console.error('Error loading analytics data:', err)
@@ -213,8 +260,14 @@ function Analytics() {
   }, [recruits, classYearFilter])
 
   const filteredPlayers = useMemo(() => {
-    if (classYearFilter === 'all') return players
-    return players.filter(p => String(p.gradYear) === classYearFilter)
+    // Filter out JUCO and Transfer players
+    const hsPlayers = players.filter((p) => {
+      if (p.isJuco === true || p.is_juco === true) return false
+      if (p.isTransferWishlist === true || p.is_transfer_wishlist === true) return false
+      return true
+    })
+    if (classYearFilter === 'all') return hsPlayers
+    return hsPlayers.filter(p => String(p.gradYear) === classYearFilter)
   }, [players, classYearFilter])
 
   const filteredBreakoutPlayers = useMemo(() => {
@@ -241,6 +294,7 @@ function Analytics() {
   }, [filteredRecruits])
 
   // Position Needs: recruit count per position, color-coded by most common status
+  // Also include positions that have a goal > 0 even if no recruits
   const positionNeeds = useMemo(() => {
     const posMap = {}
     filteredRecruits.forEach((r) => {
@@ -253,9 +307,9 @@ function Analytics() {
     })
 
     return POSITION_ORDER
-      .filter((pos) => posMap[pos]?.total > 0)
+      .filter((pos) => (posMap[pos]?.total > 0) || (positionGoals[pos] > 0))
       .map((pos) => {
-        const data = posMap[pos]
+        const data = posMap[pos] || { total: 0, statuses: {} }
         const topStatus = Object.entries(data.statuses)
           .sort((a, b) => b[1] - a[1])[0]?.[0] || 'WATCHING'
         return {
@@ -266,7 +320,7 @@ function Analytics() {
           statuses: data.statuses,
         }
       })
-  }, [filteredRecruits])
+  }, [filteredRecruits, positionGoals])
 
   // --- Player-based analytics (with demo fallbacks) ---
 
@@ -353,11 +407,13 @@ function Analytics() {
   const timeToCommit = isTimeDemo ? DEMO_TIME_TO_COMMIT : timeToCommitReal
 
   // 3. Commit-to-Offer Rate
+  // "Offered" includes currently offered + committed/signed (since they were offered first)
   const commitToOfferReal = useMemo(() => {
-    const offered = filteredPlayers.filter(isOffered).length
-    const committed = filteredPlayers.filter(isCommitted).length
-    const rate = offered > 0 ? parseFloat(((committed / offered) * 100).toFixed(1)) : 0
-    return { offered, committed, rate, pending: offered - committed }
+    const committedCount = filteredPlayers.filter(isCommitted).length
+    const currentlyOffered = filteredPlayers.filter(p => isOffered(p) && !isCommitted(p)).length
+    const totalOffered = committedCount + currentlyOffered
+    const rate = totalOffered > 0 ? parseFloat(((committedCount / totalOffered) * 100).toFixed(1)) : 0
+    return { offered: totalOffered, committed: committedCount, rate, pending: currentlyOffered }
   }, [filteredPlayers])
 
   const isOfferDemo = commitToOfferReal.offered === 0
@@ -399,6 +455,151 @@ function Analytics() {
 
   const isTopPlayersDemo = Object.keys(topPlayersByPositionReal).length === 0
   const topPlayersByPosition = isTopPlayersDemo ? DEMO_TOP_PLAYERS : topPlayersByPositionReal
+
+  // Competitor Schools Analysis: Schools Taking Our Offers (HS Players Only)
+  const competitorSchools = useMemo(() => {
+    const schoolMap = {}
+    filteredPlayers.forEach((p) => {
+      // Get all statuses
+      const rawStatuses = getStatuses(p)
+      
+      // Check if they committed elsewhere - check exact match first
+      const hasCommittedElsewhere = rawStatuses.some(s => {
+        const str = String(s).trim()
+        // Exact match
+        if (str === 'Committed Elsewhere') return true
+        // Case-insensitive match
+        const strLower = str.toLowerCase()
+        return strLower === 'committed elsewhere' ||
+               (strLower.includes('committed') && strLower.includes('elsewhere'))
+      })
+      
+      if (!hasCommittedElsewhere) return
+      
+      // Only include players who were offered by BYU
+      // If they have "Committed Elsewhere" status, we assume they were offered (can't commit elsewhere without an offer)
+      // But also check explicitly for "Offered" status, offered_date, or status history
+      const currentHasOffered = rawStatuses.some(s => {
+        const str = String(s).trim()
+        return str === 'Offered' || str.toLowerCase() === 'offered'
+      })
+      
+      const hasOfferedDate = !!(p.offeredDate || p.offered_date)
+      
+      // Check status history - look for "Offered" in any status change
+      // Status history stores new_status as an array or string
+      const hasOfferedInHistory = statusHistories[p.id] && statusHistories[p.id].some(h => {
+        // Check if new_status is an array
+        if (Array.isArray(h.new_status)) {
+          return h.new_status.some(s => {
+            const str = String(s).toLowerCase().trim()
+            return str === 'offered' || str.includes('offered')
+          })
+        }
+        // Check if new_status is a string
+        const histStatus = String(h.new_status || h.old_status || '').toLowerCase()
+        return histStatus.includes('offered') || histStatus === 'offer'
+      })
+      
+      // Check if player has "Offered" in their recruitingStatuses array (even if not current)
+      const hasOfferedInStatuses = Array.isArray(p.recruitingStatuses) && 
+                                   p.recruitingStatuses.some(s => {
+                                     const str = String(s).trim()
+                                     return str === 'Offered' || str.toLowerCase() === 'offered'
+                                   })
+      
+      // If they committed elsewhere, assume they were offered (logically required)
+      // Otherwise check explicit offered indicators
+      const hasBeenOffered = hasCommittedElsewhere || currentHasOffered || hasOfferedDate || hasOfferedInHistory || hasOfferedInStatuses
+      
+      if (!hasBeenOffered) return
+      
+      // Get committed school from multiple possible fields (both camelCase and snake_case)
+      let committedSchool = (p.committedSchool || p.committed_school || '').trim()
+      
+      // If empty, try to extract from status notes or other fields
+      if (!committedSchool || committedSchool === '') {
+        // Sometimes the school might be in the status text like "Committed to clemson"
+        const statusText = rawStatuses.join(' ') + ' ' + (p.statusNotes || '')
+        const match = statusText.match(/committed\s+to\s+([a-z\s]+)/i)
+        if (match) {
+          committedSchool = match[1].trim()
+        }
+      }
+      
+      // Skip if no school name or if it's empty/unknown
+      if (!committedSchool || committedSchool === '' || committedSchool.toLowerCase() === 'unknown') return
+      
+      // Normalize school name (title case, but preserve common abbreviations)
+      const normalizedSchool = committedSchool
+        .split(' ')
+        .map(word => {
+          // Preserve common abbreviations
+          if (word.length <= 3 && word === word.toUpperCase()) return word
+          return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        })
+        .join(' ')
+      
+      if (!schoolMap[normalizedSchool]) {
+        schoolMap[normalizedSchool] = 0
+      }
+      schoolMap[normalizedSchool] += 1
+    })
+    
+    const result = Object.entries(schoolMap)
+      .filter(([school]) => school && school !== 'Unknown' && school !== '')
+      .map(([school, count]) => ({ school, count }))
+      .sort((a, b) => b.count - a.count)
+    
+    // Debug log - always log to help diagnose
+    // Check all players for "Committed Elsewhere" status
+    const allPlayerStatuses = filteredPlayers.map(p => {
+      const rawStatuses = getStatuses(p)
+      return {
+        name: p.name,
+        rawStatuses: rawStatuses,
+        recruitingStatuses: p.recruitingStatuses,
+        hasCommittedElsewhere: rawStatuses.some(s => {
+          const str = String(s).trim()
+          return str === 'Committed Elsewhere' ||
+                 str.toLowerCase() === 'committed elsewhere' ||
+                 (str.toLowerCase().includes('committed') && str.toLowerCase().includes('elsewhere'))
+        }),
+        committedSchool: p.committedSchool || p.committed_school,
+      }
+    })
+    
+    const committedElsewherePlayers = filteredPlayers.filter(p => {
+      const rawStatuses = getStatuses(p)
+      return rawStatuses.some(s => {
+        const str = String(s).trim()
+        return str === 'Committed Elsewhere' ||
+               str.toLowerCase() === 'committed elsewhere' ||
+               (str.toLowerCase().includes('committed') && str.toLowerCase().includes('elsewhere'))
+      })
+    })
+    
+    console.log('Competitor Schools Debug:', {
+      totalPlayers: filteredPlayers.length,
+      committedElsewhereCount: committedElsewherePlayers.length,
+      allPlayerStatuses: allPlayerStatuses.filter(p => p.hasCommittedElsewhere || p.committedSchool),
+      sampleCommittedPlayer: committedElsewherePlayers[0] ? {
+        name: committedElsewherePlayers[0].name,
+        rawStatuses: getStatuses(committedElsewherePlayers[0]),
+        recruitingStatuses: committedElsewherePlayers[0].recruitingStatuses,
+        committedSchool: committedElsewherePlayers[0].committedSchool,
+        committed_school: committedElsewherePlayers[0].committed_school,
+        isOffered: isOffered(committedElsewherePlayers[0]),
+        offeredDate: committedElsewherePlayers[0].offeredDate || committedElsewherePlayers[0].offered_date,
+      } : null,
+      schoolsFound: Object.keys(schoolMap),
+      schoolMapData: schoolMap,
+      resultLength: result.length,
+      sampleResult: result.slice(0, 3),
+    })
+    
+    return result
+  }, [filteredPlayers, statusHistories])
 
   // KPI summary stats
   const kpiStats = useMemo(() => {
@@ -901,49 +1102,156 @@ function Analytics() {
               Position Needs
             </h3>
             <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
-              Recruiting status by position
+              Recruiting status by position &middot; Click goal to edit
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px' }}>
-            {positionNeeds.map((pos) => (
-              <div key={pos.position} style={{
-                padding: '12px',
-                background: 'var(--color-bg-secondary)',
-                borderRadius: '10px',
-                border: '1px solid var(--color-border)',
-              }}>
-                <div style={{
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  marginBottom: '8px',
-                  color: 'white',
-                  background: BYU_BLUE,
-                  display: 'inline-block',
-                  padding: '2px 10px',
-                  borderRadius: '4px',
+            {positionNeeds.map((pos) => {
+              const committedCount = (pos.statuses['COMMITTED'] || 0) + (pos.statuses['SIGNED'] || 0)
+              const offeredCount = pos.statuses['OFFERED'] || 0
+              const goalValue = positionGoals[pos.position] || 0
+              const isEditing = editingGoalPos === pos.position
+
+              return (
+                <div key={pos.position} style={{
+                  padding: '12px',
+                  background: 'var(--color-bg-secondary)',
+                  borderRadius: '10px',
+                  border: '1px solid var(--color-border)',
                 }}>
-                  {pos.position}
-                  <span style={{ fontSize: '12px', fontWeight: 400, marginLeft: '6px', opacity: 0.8 }}>
-                    ({pos.count})
-                  </span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  {[
-                    { label: 'Committed', value: (pos.statuses['COMMITTED'] || 0) + (pos.statuses['SIGNED'] || 0), color: '#16a34a' },
-                    { label: 'Offered', value: pos.statuses['OFFERED'] || 0, color: '#2563eb' },
-                    { label: 'Goal', value: pos.count, color: BYU_BLUE },
-                  ].map(row => (
-                    <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                      <span style={{ color: row.color, fontWeight: 500 }}>{row.label}</span>
-                      <span style={{ fontWeight: 600 }}>{row.value}</span>
+                  <div style={{
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    marginBottom: '8px',
+                    color: 'white',
+                    background: BYU_BLUE,
+                    display: 'inline-block',
+                    padding: '2px 10px',
+                    borderRadius: '4px',
+                  }}>
+                    {pos.position}
+                    <span style={{ fontSize: '12px', fontWeight: 400, marginLeft: '6px', opacity: 0.8 }}>
+                      ({pos.count})
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                      <span style={{ color: '#16a34a', fontWeight: 500 }}>Committed</span>
+                      <span style={{ fontWeight: 600 }}>{committedCount}</span>
                     </div>
-                  ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                      <span style={{ color: '#2563eb', fontWeight: 500 }}>Offered</span>
+                      <span style={{ fontWeight: 600 }}>{offeredCount}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', alignItems: 'center' }}>
+                      <span style={{ color: BYU_BLUE, fontWeight: 500 }}>Goal</span>
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          min="0"
+                          autoFocus
+                          value={editingGoalValue}
+                          onChange={(e) => setEditingGoalValue(e.target.value)}
+                          onBlur={() => {
+                            const num = parseInt(editingGoalValue, 10)
+                            const newGoals = { ...positionGoals, [pos.position]: isNaN(num) ? 0 : num }
+                            setPositionGoals(newGoals)
+                            setEditingGoalPos(null)
+                            recruitingGoalsApi.save(newGoals).catch(console.error)
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.target.blur()
+                            if (e.key === 'Escape') setEditingGoalPos(null)
+                          }}
+                          style={{
+                            width: '40px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            textAlign: 'right',
+                            padding: '1px 4px',
+                            border: `1px solid ${BYU_BLUE}`,
+                            borderRadius: '4px',
+                            outline: 'none',
+                            background: 'var(--color-bg-card, white)',
+                            color: 'var(--color-text)',
+                          }}
+                        />
+                      ) : (
+                        <span
+                          onClick={() => {
+                            setEditingGoalPos(pos.position)
+                            setEditingGoalValue(String(goalValue))
+                          }}
+                          style={{
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            padding: '1px 4px',
+                            borderRadius: '4px',
+                            borderBottom: '1px dashed #9ca3af',
+                          }}
+                          title="Click to edit goal"
+                        >
+                          {goalValue || '\u2014'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </section>
       )}
+
+      {/* Competitor Schools */}
+      <div style={{
+        marginBottom: '24px',
+      }}>
+        <section className="panel" style={{
+          padding: '24px',
+          borderRadius: '12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+        }}>
+          <div style={{ marginBottom: '12px' }}>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600, color: BYU_BLUE }}>
+              Schools Taking Our Offers
+            </h3>
+            <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
+              HS players who committed elsewhere after being offered
+            </p>
+          </div>
+          {competitorSchools.length === 0 ? (
+            <p className="empty-state" style={{ padding: '40px', textAlign: 'center' }}>
+              No players committed elsewhere yet
+            </p>
+          ) : (
+            <div style={{ width: '100%', height: '400px', minHeight: '400px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={competitorSchools} layout="vertical" margin={{ top: 5, right: 30, left: 5, bottom: 5 }} barCategoryGap="25%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.4} horizontal={false} />
+                  <YAxis
+                    dataKey="school"
+                    type="category"
+                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={120}
+                  />
+                  <XAxis
+                    type="number"
+                    allowDecimals={false}
+                    tick={{ fontSize: 10, fill: '#6b7280' }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="count" name="Players" fill="#f97316" radius={[0, 6, 6, 0]} maxBarSize={28} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </section>
+      </div>
 
       {/* Top Players by Position */}
       <section className="panel" style={{

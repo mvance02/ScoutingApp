@@ -228,6 +228,12 @@ export const chatApi = {
   markAsRead: (roomId) => request(`/chat/messages/${roomId}/read`, { method: 'PUT' }),
 }
 
+// Recruiting Goals API
+export const recruitingGoalsApi = {
+  get: () => request('/recruiting-goals'),
+  save: (goals) => request('/recruiting-goals', { method: 'PUT', body: goals }),
+}
+
 // Shortcuts API
 export const shortcutsApi = {
   get: () => request('/shortcuts'),

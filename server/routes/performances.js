@@ -44,12 +44,11 @@ const STAT_WEIGHTS = {
   'Sack Taken': -3,
 }
 
-// Grade to numeric conversion
+// Grade to numeric conversion (simplified: A, B, C, F only)
 const GRADE_VALUES = {
-  'A+': 100, 'A': 95, 'A-': 92,
-  'B+': 88, 'B': 85, 'B-': 82,
-  'C+': 78, 'C': 75, 'C-': 72,
-  'D+': 68, 'D': 65, 'D-': 62,
+  'A': 95,
+  'B': 85,
+  'C': 75,
   'F': 50,
 }
 
@@ -240,19 +239,15 @@ router.get('/leaderboard', async (req, res, next) => {
         p.position,
         COUNT(DISTINCT g.id) as games_played,
         AVG(CASE
-          WHEN gpg.grade = 'A+' THEN 100
           WHEN gpg.grade = 'A' THEN 95
-          WHEN gpg.grade = 'A-' THEN 92
-          WHEN gpg.grade = 'B+' THEN 88
           WHEN gpg.grade = 'B' THEN 85
-          WHEN gpg.grade = 'B-' THEN 82
-          WHEN gpg.grade = 'C+' THEN 78
           WHEN gpg.grade = 'C' THEN 75
-          WHEN gpg.grade = 'C-' THEN 72
-          WHEN gpg.grade = 'D+' THEN 68
-          WHEN gpg.grade = 'D' THEN 65
-          WHEN gpg.grade = 'D-' THEN 62
           WHEN gpg.grade = 'F' THEN 50
+          -- Handle old grade format conversions (for backward compatibility)
+          WHEN gpg.grade IN ('A+', 'A-') THEN 95
+          WHEN gpg.grade IN ('B+', 'B-') THEN 85
+          WHEN gpg.grade IN ('C+', 'C-') THEN 75
+          WHEN gpg.grade IN ('D+', 'D', 'D-') THEN 50
           ELSE NULL
         END) as avg_grade
       FROM players p

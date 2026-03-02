@@ -91,7 +91,13 @@ function Dashboard() {
   }, [])
 
   const { flaggedPlayers, sortedGames, totalStats, totalPages, paginatedGames, avgCompositeRating } = useMemo(() => {
-    const flagged = players.filter((player) => player.flagged)
+    // Filter out JUCO and Transfer players
+    const hsPlayers = players.filter((p) => {
+      if (p.isJuco === true || p.is_juco === true) return false
+      if (p.isTransferWishlist === true || p.is_transfer_wishlist === true) return false
+      return true
+    })
+    const flagged = hsPlayers.filter((player) => player.flagged)
     const sorted = [...games].sort((a, b) => {
       const aTime = a.date ? new Date(a.date).getTime() : 0
       const bTime = b.date ? new Date(b.date).getTime() : 0
@@ -105,8 +111,8 @@ function Dashboard() {
     const start = (currentPage - 1) * GAMES_PER_PAGE
     const paginated = sorted.slice(start, start + GAMES_PER_PAGE)
 
-    // Calculate average composite rating for committed players
-    const committedPlayers = players.filter((p) => {
+    // Calculate average composite rating for committed players (HS only)
+    const committedPlayers = hsPlayers.filter((p) => {
       const statuses = p.recruitingStatuses || []
       return statuses.includes('Committed') || statuses.includes('Signed')
     })
@@ -443,7 +449,7 @@ function Dashboard() {
                 Avg Composite Rating:
               </span>
               <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                Goal: 88.04+
+                Goal: 86.12+
               </div>
             </div>
             <div

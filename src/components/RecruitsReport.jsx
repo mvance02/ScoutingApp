@@ -124,7 +124,7 @@ function toTitleCase(str) {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-const NOTE_SOURCES = ['247Sports', 'ON3', 'Rivals', 'ESPN', 'X', 'Instagram']
+const NOTE_SOURCES = ['Note', '247Sports', 'ON3', 'Rivals', 'ESPN', 'X', 'Instagram']
 const STATUS_OPTIONS = [
   'COMMITTED',
   'OFFERED',
@@ -844,7 +844,11 @@ function RecruitCard({
               {!NOTE_SOURCES.includes(noteForm.source) ? (
                 <label className="field">Custom Source<input value={noteForm.source} onChange={(e) => setNoteForm((prev) => ({ ...prev, source: e.target.value }))} placeholder="Enter source name" /></label>
               ) : null}
-              <label className="field field-wide">Link<input value={noteForm.link} onChange={(e) => setNoteForm((prev) => ({ ...prev, link: e.target.value }))} /></label>
+              {noteForm.source !== 'Note' ? (
+                <label className="field field-wide">Link<input value={noteForm.link} onChange={(e) => setNoteForm((prev) => ({ ...prev, link: e.target.value }))} /></label>
+              ) : (
+                <label className="field field-wide">Link (Optional)<input value={noteForm.link} onChange={(e) => setNoteForm((prev) => ({ ...prev, link: e.target.value }))} placeholder="Optional link" /></label>
+              )}
               <label className="field field-wide">Summary<input value={noteForm.summary} onChange={(e) => setNoteForm((prev) => ({ ...prev, summary: e.target.value }))} /></label>
               <label className="field field-wide">Quote<input value={noteForm.quote} onChange={(e) => setNoteForm((prev) => ({ ...prev, quote: e.target.value }))} /></label>
             </div>

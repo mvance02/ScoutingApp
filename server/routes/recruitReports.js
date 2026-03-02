@@ -78,11 +78,14 @@ function hasEligibleRecruitStatus(statuses) {
   return list.map(normalizeRecruitingStatus).some((status) => ELIGIBLE_RECRUIT_STATUSES.has(status))
 }
 
-// Sync players with recruiting_status into recruits table
+// Sync players with recruiting_status into recruits table (HS players only, exclude JUCO and Transfer)
 async function syncPlayersToRecruits() {
   const playersResult = await pool.query(
     `SELECT id, name, school, state, grad_year, position, offense_position, defense_position, recruiting_status, committed_school
-     FROM players WHERE recruiting_status IS NOT NULL`
+     FROM players 
+     WHERE recruiting_status IS NOT NULL
+       AND (is_juco = false OR is_juco IS NULL)
+       AND (is_transfer_wishlist = false OR is_transfer_wishlist IS NULL)`
   )
 
   if (playersResult.rows.length === 0) return
@@ -401,6 +404,7 @@ router.get('/', async (req, res, next) => {
        LEFT JOIN recruit_weekly_reports rr
          ON rr.recruit_id = r.id AND rr.week_start_date = $1
        WHERE r.status IN ('COMMITTED', 'OFFERED', 'COMMITTED ELSEWHERE', 'SIGNED')
+         AND (p.id IS NULL OR (p.is_juco = false AND p.is_transfer_wishlist = false))
        ORDER BY r.side_of_ball, r.position, r.name`,
       [week_start_date]
     )

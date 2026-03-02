@@ -109,6 +109,8 @@ function PlayerManagement() {
     committedSchool: '',
     committedDate: '',
     compositeRating: '',
+    isLds: false,
+    offeredDate: '',
   })
 
   useEffect(() => {
@@ -132,6 +134,10 @@ function PlayerManagement() {
 
   const filteredPlayers = useMemo(() => {
     return players.filter((player) => {
+      // HS Players only: filter out JUCO and Transfer players
+      if (player.isJuco === true || player.is_juco === true) return false
+      if (player.isTransferWishlist === true || player.is_transfer_wishlist === true) return false
+
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase()
@@ -255,6 +261,18 @@ function PlayerManagement() {
     event.preventDefault()
     if (!form.name.trim()) return
 
+    // Validation: Offered status requires offeredDate
+    if (form.recruitingStatuses.includes('Offered') && !form.offeredDate) {
+      alert('Please provide an Offered Date when status includes "Offered"')
+      return
+    }
+
+    // Validation: Committed or Signed status requires committedDate
+    if ((form.recruitingStatuses.includes('Committed') || form.recruitingStatuses.includes('Signed')) && !form.committedDate) {
+      alert('Please provide a Committed Date when status includes "Committed" or "Signed"')
+      return
+    }
+
     // Check for duplicates
     const duplicates = checkForDuplicates(form.name, form.school || '')
     if (duplicates.length > 0) {
@@ -280,6 +298,10 @@ function PlayerManagement() {
       committedSchool: form.committedSchool.trim(),
       committedDate: form.committedDate,
       compositeRating: form.compositeRating ? parseFloat(form.compositeRating) : null,
+      isJuco: false,
+      isTransferWishlist: false,
+      isLds: form.isLds || false,
+      offeredDate: form.offeredDate || null,
     }
 
     try {
@@ -307,6 +329,8 @@ function PlayerManagement() {
       committedSchool: '',
       committedDate: '',
       compositeRating: '',
+      isLds: false,
+      offeredDate: '',
     })
     setStatusMenuOpen(false)
     setDuplicateWarning(null)
@@ -363,6 +387,8 @@ function PlayerManagement() {
       committedSchool: player.committedSchool || '',
       committedDate: player.committedDate || '',
       compositeRating: player.compositeRating || '',
+      isLds: player.isLds || player.is_lds || false,
+      offeredDate: player.offeredDate || player.offered_date || '',
     })
   }
 
@@ -374,6 +400,18 @@ function PlayerManagement() {
 
   const saveEditing = async () => {
     if (!editingPlayerId || !editForm) return
+
+    // Validation: Offered status requires offeredDate
+    if ((editForm.recruitingStatuses || []).includes('Offered') && !editForm.offeredDate) {
+      alert('Please provide an Offered Date when status includes "Offered"')
+      return
+    }
+
+    // Validation: Committed or Signed status requires committedDate
+    if (((editForm.recruitingStatuses || []).includes('Committed') || (editForm.recruitingStatuses || []).includes('Signed')) && !editForm.committedDate) {
+      alert('Please provide a Committed Date when status includes "Committed" or "Signed"')
+      return
+    }
 
     const updatedPlayer = {
       ...editForm,
@@ -596,6 +634,30 @@ function PlayerManagement() {
               ) : null}
             </div>
           </div>
+          {form.recruitingStatuses.includes('Offered') ? (
+            <label className="field">
+              Offered Date *
+              <input
+                type="date"
+                name="offeredDate"
+                value={form.offeredDate}
+                onChange={handleChange}
+                required
+              />
+            </label>
+          ) : null}
+          {(form.recruitingStatuses.includes('Committed') || form.recruitingStatuses.includes('Signed')) ? (
+            <label className="field">
+              Committed Date *
+              <input
+                type="date"
+                name="committedDate"
+                value={form.committedDate}
+                onChange={handleChange}
+                required
+              />
+            </label>
+          ) : null}
           {form.recruitingStatuses.includes('Committed Elsewhere') ? (
             <>
               <label className="field">
@@ -608,12 +670,13 @@ function PlayerManagement() {
                 />
               </label>
               <label className="field">
-                Committed Date
+                Committed Date *
                 <input
                   type="date"
                   name="committedDate"
                   value={form.committedDate}
                   onChange={handleChange}
+                  required
                 />
               </label>
             </>
@@ -630,6 +693,15 @@ function PlayerManagement() {
               max="100"
               step="0.01"
             />
+          </label>
+          <label className="checkbox" style={{ gridColumn: '1 / -1' }}>
+            <input
+              type="checkbox"
+              name="isLds"
+              checked={form.isLds || false}
+              onChange={(e) => setForm((prev) => ({ ...prev, isLds: e.target.checked }))}
+            />
+            <span>LDS</span>
           </label>
           <label className="field field-wide">
             Notes
@@ -865,6 +937,30 @@ function PlayerManagement() {
                             ) : null}
                           </div>
                         </div>
+                        {(editForm.recruitingStatuses || []).includes('Offered') ? (
+                          <label className="field">
+                            Offered Date *
+                            <input
+                              type="date"
+                              name="offeredDate"
+                              value={editForm.offeredDate || ''}
+                              onChange={handleEditChange}
+                              required
+                            />
+                          </label>
+                        ) : null}
+                        {((editForm.recruitingStatuses || []).includes('Committed') || (editForm.recruitingStatuses || []).includes('Signed')) ? (
+                          <label className="field">
+                            Committed Date *
+                            <input
+                              type="date"
+                              name="committedDate"
+                              value={editForm.committedDate || ''}
+                              onChange={handleEditChange}
+                              required
+                            />
+                          </label>
+                        ) : null}
                         {(editForm.recruitingStatuses || []).includes('Committed Elsewhere') ? (
                           <>
                             <label className="field">
@@ -872,8 +968,8 @@ function PlayerManagement() {
                               <input name="committedSchool" value={editForm.committedSchool || ''} onChange={handleEditChange} placeholder="School name" />
                             </label>
                             <label className="field">
-                              Committed Date
-                              <input type="date" name="committedDate" value={editForm.committedDate || ''} onChange={handleEditChange} />
+                              Committed Date *
+                              <input type="date" name="committedDate" value={editForm.committedDate || ''} onChange={handleEditChange} required />
                             </label>
                           </>
                         ) : null}
@@ -889,6 +985,15 @@ function PlayerManagement() {
                             max="100"
                             step="0.01"
                           />
+                        </label>
+                        <label className="checkbox" style={{ gridColumn: '1 / -1' }}>
+                          <input
+                            type="checkbox"
+                            name="isLds"
+                            checked={editForm.isLds || false}
+                            onChange={(e) => setEditForm((prev) => ({ ...prev, isLds: e.target.checked }))}
+                          />
+                          <span>LDS</span>
                         </label>
                         <label className="field" style={{ gridColumn: '1 / -1' }}>
                           Notes
@@ -927,6 +1032,21 @@ function PlayerManagement() {
                               }}
                             >
                               {parseFloat(player.compositeRating).toFixed(2)}
+                            </span>
+                          )}
+                          {(player.isLds || player.is_lds) && (
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                padding: '3px 8px',
+                                borderRadius: '8px',
+                                background: '#fef3c7',
+                                color: '#92400e',
+                                fontWeight: '600',
+                                border: '1px solid #fbbf24',
+                              }}
+                            >
+                              LDS
                             </span>
                           )}
                           {(player.recruitingStatuses || ['Watching']).map((status) => (

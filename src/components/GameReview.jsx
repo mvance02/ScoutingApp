@@ -294,6 +294,10 @@ function GameReview() {
 
   const filteredPlayers = useMemo(() => {
     return players.filter((player) => {
+      // Filter out JUCO and Transfer players
+      if (player.isJuco === true || player.is_juco === true) return false
+      if (player.isTransferWishlist === true || player.is_transfer_wishlist === true) return false
+
       if (playerSearch) {
         const query = playerSearch.toLowerCase()
         const matchesName = player.name?.toLowerCase().includes(query)
@@ -331,7 +335,12 @@ function GameReview() {
 
   const reviewPlayers = useMemo(() => {
     if (!game) return []
-    return players.filter((player) => game.playerIds?.includes(player.id))
+    // Filter out JUCO and Transfer players from review players
+    return players.filter((player) => {
+      if (player.isJuco === true || player.is_juco === true) return false
+      if (player.isTransferWishlist === true || player.is_transfer_wishlist === true) return false
+      return game.playerIds?.includes(player.id)
+    })
   }, [players, game])
 
   const totals = useMemo(() => {
@@ -1394,15 +1403,9 @@ function GameReview() {
                         style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '13px' }}
                       >
                         <option value="">Grade</option>
-                        <option value="A+">A+</option>
                         <option value="A">A</option>
-                        <option value="A-">A-</option>
-                        <option value="B+">B+</option>
                         <option value="B">B</option>
-                        <option value="B-">B-</option>
-                        <option value="C+">C+</option>
                         <option value="C">C</option>
-                        <option value="C-">C-</option>
                         <option value="D">D</option>
                         <option value="F">F</option>
                       </select>

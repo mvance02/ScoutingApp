@@ -407,6 +407,40 @@ export async function exportGameDayPDF(players, games, stats, date, grades = [])
       p.adminNotes,
     ])
 
+    // Helper function to get grade color
+    const getGradeColor = (grade) => {
+      if (!grade) return null
+      const g = grade.toUpperCase()
+      if (g === 'A') return [227, 242, 253] // Light blue
+      if (g === 'B') return [232, 245, 233] // Light green
+      if (g === 'C') return [255, 249, 196] // Light yellow
+      if (g === 'F') return [255, 235, 238] // Light red
+      // Handle old grade format conversions
+      if (g === 'A+' || g === 'A-') return [227, 242, 253] // Light blue
+      if (g === 'B+' || g === 'B-') return [232, 245, 233] // Light green
+      if (g === 'C+' || g === 'C-') return [255, 249, 196] // Light yellow
+      if (g.startsWith('D')) return [255, 235, 238] // Light red
+      return null
+    }
+
+    // Helper function to determine win/loss from score
+    const getScoreColor = (score) => {
+      if (!score) return null
+      // Parse score like "W 28-14" or "L 14-28" or "28-14"
+      const match = score.match(/([WL])\s*(\d+)-(\d+)/i) || score.match(/(\d+)-(\d+)/)
+      if (!match) return null
+      const isWin = match[1]?.toUpperCase() === 'W' || (match[1] && parseInt(match[1]) > parseInt(match[2]))
+      const ourScore = parseInt(match[match[1] ? 2 : 1])
+      const theirScore = parseInt(match[match[1] ? 3 : 2])
+      const won = isWin || ourScore > theirScore
+      return won ? [232, 245, 233] : [255, 235, 238] // Green for win, red for loss
+    }
+
+    const firstNameIndex = headers.indexOf('First')
+    const lastNameIndex = headers.indexOf('Last')
+    const scoreIndex = headers.indexOf('Score')
+    const gradeIndex = headers.indexOf('Grd')
+
     autoTable(doc, {
       startY: yPos,
       head: [headers],
@@ -418,6 +452,30 @@ export async function exportGameDayPDF(players, games, stats, date, grades = [])
       columnStyles: {
         [headers.length - 2]: { cellWidth: 35 }, // Scout Notes
         [headers.length - 1]: { cellWidth: 35 }, // Admin Notes
+      },
+      didParseCell: (data) => {
+        const rowIndex = data.row.index
+        const colIndex = data.column.index
+        if (rowIndex === 0) return // Header row
+
+        const playerData = groupPlayers[rowIndex - 1]
+        if (!playerData) return
+
+        // Color player name cells (First and Last) based on grade
+        if ((colIndex === firstNameIndex || colIndex === lastNameIndex) && playerData.gameGrade) {
+          const gradeColor = getGradeColor(playerData.gameGrade)
+          if (gradeColor) {
+            data.cell.styles.fillColor = gradeColor
+          }
+        }
+
+        // Color score cell based on win/loss
+        if (colIndex === scoreIndex && playerData.score) {
+          const scoreColor = getScoreColor(playerData.score)
+          if (scoreColor) {
+            data.cell.styles.fillColor = scoreColor
+          }
+        }
       },
     })
 
@@ -538,6 +596,39 @@ export async function exportGameDayPDFByPosition(players, games, stats, date, gr
       p.adminNotes,
     ])
 
+    // Helper function to get grade color
+    const getGradeColor = (grade) => {
+      if (!grade) return null
+      const g = grade.toUpperCase()
+      if (g === 'A') return [227, 242, 253] // Light blue
+      if (g === 'B') return [232, 245, 233] // Light green
+      if (g === 'C') return [255, 249, 196] // Light yellow
+      if (g === 'F') return [255, 235, 238] // Light red
+      // Handle old grade format conversions
+      if (g === 'A+' || g === 'A-') return [227, 242, 253] // Light blue
+      if (g === 'B+' || g === 'B-') return [232, 245, 233] // Light green
+      if (g === 'C+' || g === 'C-') return [255, 249, 196] // Light yellow
+      if (g.startsWith('D')) return [255, 235, 238] // Light red
+      return null
+    }
+
+    // Helper function to determine win/loss from score
+    const getScoreColor = (score) => {
+      if (!score) return null
+      // Parse score like "W 28-14" or "L 14-28" or "28-14"
+      const match = score.match(/([WL])\s*(\d+)-(\d+)/i) || score.match(/(\d+)-(\d+)/)
+      if (!match) return null
+      const isWin = match[1]?.toUpperCase() === 'W' || (match[1] && parseInt(match[1]) > parseInt(match[2]))
+      const ourScore = parseInt(match[match[1] ? 2 : 1])
+      const theirScore = parseInt(match[match[1] ? 3 : 2])
+      const won = isWin || ourScore > theirScore
+      return won ? [232, 245, 233] : [255, 235, 238] // Green for win, red for loss
+    }
+
+    const firstNameIndex = headers.indexOf('First')
+    const lastNameIndex = headers.indexOf('Last')
+    const scoreIndex = headers.indexOf('Score')
+
     autoTable(doc, {
       startY: headerY + 27,
       head: [headers],
@@ -549,6 +640,30 @@ export async function exportGameDayPDFByPosition(players, games, stats, date, gr
       columnStyles: {
         [headers.length - 2]: { cellWidth: 35 },
         [headers.length - 1]: { cellWidth: 35 },
+      },
+      didParseCell: (data) => {
+        const rowIndex = data.row.index
+        const colIndex = data.column.index
+        if (rowIndex === 0) return // Header row
+
+        const playerData = groupPlayers[rowIndex - 1]
+        if (!playerData) return
+
+        // Color player name cells (First and Last) based on grade
+        if ((colIndex === firstNameIndex || colIndex === lastNameIndex) && playerData.gameGrade) {
+          const gradeColor = getGradeColor(playerData.gameGrade)
+          if (gradeColor) {
+            data.cell.styles.fillColor = gradeColor
+          }
+        }
+
+        // Color score cell based on win/loss
+        if (colIndex === scoreIndex && playerData.score) {
+          const scoreColor = getScoreColor(playerData.score)
+          if (scoreColor) {
+            data.cell.styles.fillColor = scoreColor
+          }
+        }
       },
     })
 
@@ -631,6 +746,34 @@ export function exportGameDayExcel(players, games, stats, date, grades = []) {
   // Create a sheet for each position group
   const posOrder = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'EDGE', 'LB', 'DB', 'ATH']
 
+  // Helper function to get grade color for Excel
+  const getGradeColorExcel = (grade) => {
+    if (!grade) return null
+    const g = grade.toUpperCase()
+    if (g === 'A') return { rgb: 'E3F2FD' } // Light blue
+    if (g === 'B') return { rgb: 'E8F5E9' } // Light green
+    if (g === 'C') return { rgb: 'FFF9C4' } // Light yellow
+    if (g === 'F') return { rgb: 'FFEBEE' } // Light red
+    // Handle old grade format conversions
+    if (g === 'A+' || g === 'A-') return { rgb: 'E3F2FD' }
+    if (g === 'B+' || g === 'B-') return { rgb: 'E8F5E9' }
+    if (g === 'C+' || g === 'C-') return { rgb: 'FFF9C4' }
+    if (g.startsWith('D')) return { rgb: 'FFEBEE' }
+    return null
+  }
+
+  // Helper function to determine win/loss from score for Excel
+  const getScoreColorExcel = (score) => {
+    if (!score) return null
+    const match = score.match(/([WL])\s*(\d+)-(\d+)/i) || score.match(/(\d+)-(\d+)/)
+    if (!match) return null
+    const isWin = match[1]?.toUpperCase() === 'W' || (match[1] && parseInt(match[1]) > parseInt(match[2]))
+    const ourScore = parseInt(match[match[1] ? 2 : 1])
+    const theirScore = parseInt(match[match[1] ? 3 : 2])
+    const won = isWin || ourScore > theirScore
+    return won ? { rgb: 'E8F5E9' } : { rgb: 'FFEBEE' } // Green for win, red for loss
+  }
+
   posOrder.forEach(posGroup => {
     if (!positionGroups[posGroup] || positionGroups[posGroup].length === 0) return
 
@@ -648,6 +791,52 @@ export function exportGameDayExcel(players, games, stats, date, grades = []) {
       if (col === 'Grade') return { wch: 8 }
       if (col === 'Scout Notes' || col === 'Admin Notes') return { wch: 30 }
       return { wch: 10 }
+    })
+
+    // Apply color coding to player name cells (First Name and Last Name) based on grade
+    const firstNameCol = XLSX.utils.encode_col(cols.indexOf('First Name'))
+    const lastNameCol = XLSX.utils.encode_col(cols.indexOf('Last Name'))
+    const scoreCol = XLSX.utils.encode_col(cols.indexOf('Score'))
+
+    data.forEach((row, rowIndex) => {
+      const actualRowIndex = rowIndex + 2 // +1 for header, +1 for 1-based indexing
+      const grade = row['Grade']
+      
+      // Color First Name cell
+      const firstNameCell = `${firstNameCol}${actualRowIndex}`
+      if (ws[firstNameCell]) {
+        const gradeColor = getGradeColorExcel(grade)
+        if (gradeColor) {
+          ws[firstNameCell].s = {
+            ...ws[firstNameCell].s,
+            fill: { fgColor: gradeColor },
+          }
+        }
+      }
+
+      // Color Last Name cell
+      const lastNameCell = `${lastNameCol}${actualRowIndex}`
+      if (ws[lastNameCell]) {
+        const gradeColor = getGradeColorExcel(grade)
+        if (gradeColor) {
+          ws[lastNameCell].s = {
+            ...ws[lastNameCell].s,
+            fill: { fgColor: gradeColor },
+          }
+        }
+      }
+
+      // Color Score cell based on win/loss
+      const scoreCell = `${scoreCol}${actualRowIndex}`
+      if (ws[scoreCell]) {
+        const scoreColor = getScoreColorExcel(row['Score'])
+        if (scoreColor) {
+          ws[scoreCell].s = {
+            ...ws[scoreCell].s,
+            fill: { fgColor: scoreColor },
+          }
+        }
+      }
     })
 
     XLSX.utils.book_append_sheet(wb, ws, posGroup)
@@ -695,6 +884,54 @@ export function exportGameDayExcel(players, games, stats, date, grades = []) {
 
   if (allData.length > 0) {
     const wsAll = XLSX.utils.json_to_sheet(allData)
+    
+    // Apply color coding to "All Players" sheet as well
+    const allCols = Object.keys(allData[0])
+    const allFirstNameCol = XLSX.utils.encode_col(allCols.indexOf('First Name'))
+    const allLastNameCol = XLSX.utils.encode_col(allCols.indexOf('Last Name'))
+    const allScoreCol = XLSX.utils.encode_col(allCols.indexOf('Score'))
+
+    allData.forEach((row, rowIndex) => {
+      const actualRowIndex = rowIndex + 2 // +1 for header, +1 for 1-based indexing
+      const grade = row['Grade']
+      
+      // Color First Name cell
+      const firstNameCell = `${allFirstNameCol}${actualRowIndex}`
+      if (wsAll[firstNameCell]) {
+        const gradeColor = getGradeColorExcel(grade)
+        if (gradeColor) {
+          wsAll[firstNameCell].s = {
+            ...wsAll[firstNameCell].s,
+            fill: { fgColor: gradeColor },
+          }
+        }
+      }
+
+      // Color Last Name cell
+      const lastNameCell = `${allLastNameCol}${actualRowIndex}`
+      if (wsAll[lastNameCell]) {
+        const gradeColor = getGradeColorExcel(grade)
+        if (gradeColor) {
+          wsAll[lastNameCell].s = {
+            ...wsAll[lastNameCell].s,
+            fill: { fgColor: gradeColor },
+          }
+        }
+      }
+
+      // Color Score cell based on win/loss
+      const scoreCell = `${allScoreCol}${actualRowIndex}`
+      if (wsAll[scoreCell]) {
+        const scoreColor = getScoreColorExcel(row['Score'])
+        if (scoreColor) {
+          wsAll[scoreCell].s = {
+            ...wsAll[scoreCell].s,
+            fill: { fgColor: scoreColor },
+          }
+        }
+      }
+    })
+
     XLSX.utils.book_append_sheet(wb, wsAll, 'All Players')
   }
 

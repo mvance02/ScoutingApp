@@ -149,13 +149,23 @@ function PlayerProfile() {
   const averageGrade = useMemo(() => {
     const graded = grades.filter((g) => g.grade)
     if (graded.length === 0) return null
-    const gradeValues = { A: 4, 'A+': 4.3, 'A-': 3.7, B: 3, 'B+': 3.3, 'B-': 2.7, C: 2, 'C+': 2.3, 'C-': 1.7, D: 1, 'D+': 1.3, 'D-': 0.7, F: 0 }
-    const sum = graded.reduce((acc, g) => acc + (gradeValues[g.grade] ?? 2), 0)
+    const gradeValues = { A: 4, B: 3, C: 2, F: 0 }
+    // Handle old grade format conversions (for backward compatibility)
+    const normalizedGradeValues = {
+      'A+': 4, 'A': 4, 'A-': 4,
+      'B+': 3, 'B': 3, 'B-': 3,
+      'C+': 2, 'C': 2, 'C-': 2,
+      'D+': 0, 'D': 0, 'D-': 0,
+      'F': 0,
+    }
+    const sum = graded.reduce((acc, g) => {
+      const value = normalizedGradeValues[g.grade] ?? gradeValues[g.grade] ?? 2
+      return acc + value
+    }, 0)
     const avg = sum / graded.length
-    if (avg >= 3.7) return 'A'
-    if (avg >= 2.7) return 'B'
-    if (avg >= 1.7) return 'C'
-    if (avg >= 0.7) return 'D'
+    if (avg >= 3.5) return 'A'
+    if (avg >= 2.5) return 'B'
+    if (avg >= 1.5) return 'C'
     return 'F'
   }, [grades])
 

@@ -4,6 +4,8 @@ import { Home, Users, Plus, Moon, Sun, HelpCircle, Settings, FileText, UserCheck
 import Dashboard from './components/Dashboard'
 import GameReview from './components/GameReview'
 import PlayerManagement from './components/PlayerManagement'
+import JUCOPlayers from './components/JUCOPlayers'
+import TransferWishlist from './components/TransferWishlist'
 import { createGame, isUsingFallback } from './utils/storage'
 import PlayerStats from './components/PlayerStats'
 import Login from './components/Login'
@@ -144,6 +146,8 @@ function App() {
             <Route path="/player/:playerId/stats" element={<PlayerStats />} />
             <Route path="/recruits-report" element={<RecruitsReport />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/juco-players" element={<JUCOPlayers />} />
+            <Route path="/transfer-players" element={<TransferWishlist />} />
             {user?.role === 'admin' ? (
               <>
                 <Route path="/admin/users" element={<UserManagement />} />
@@ -212,7 +216,7 @@ function NavBar({ user, darkMode, onToggleDarkMode, onLogout, onShowShortcuts, o
           onClick={() => setActivePath('/players')}
         >
           <Users size={20} />
-          Players
+          HS Players
         </Link>
         <Link
           to="/recruits-report"
@@ -259,13 +263,6 @@ function NavBar({ user, darkMode, onToggleDarkMode, onLogout, onShowShortcuts, o
           </>
         ) : null}
         <button
-          className="btn-ghost"
-          onClick={onShowNotifications}
-          title="Notifications"
-        >
-          <Bell size={20} />
-        </button>
-        <button
           className="btn-primary"
           onClick={async () => {
             const newGame = {
@@ -285,6 +282,30 @@ function NavBar({ user, darkMode, onToggleDarkMode, onLogout, onShowShortcuts, o
         >
           <Plus size={20} />
           New Game Review
+        </button>
+        <div style={{ width: '100%', height: '1px', background: 'var(--color-border)', margin: '12px 0' }} />
+        <Link
+          to="/juco-players"
+          className={activePath === '/juco-players' ? 'active' : ''}
+          onClick={() => setActivePath('/juco-players')}
+        >
+          <Users size={20} />
+          JUCO
+        </Link>
+        <Link
+          to="/transfer-players"
+          className={activePath === '/transfer-players' ? 'active' : ''}
+          onClick={() => setActivePath('/transfer-players')}
+        >
+          <Users size={20} />
+          Transfer
+        </Link>
+        <button
+          className="btn-ghost"
+          onClick={onShowNotifications}
+          title="Notifications"
+        >
+          <Bell size={20} />
         </button>
         <button
           className="btn-ghost"

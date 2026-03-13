@@ -420,362 +420,241 @@ function Dashboard() {
   }
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <div>
-          <h2>Saturday Review Hub</h2>
-          <p>Queue flagged players, log stats quickly, export the spreadsheet in minutes.</p>
-        </div>
-        <div className="action-row">
-          <button className="btn-secondary" onClick={handleBackup}>
-            <Download size={16} />
-            Backup Data
-          </button>
-          <button className="btn-secondary" onClick={handleRestoreClick}>
-            <Upload size={16} />
-            Restore Data
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            onChange={handleRestoreFile}
-            style={{ display: 'none' }}
-          />
-          <Link className="btn-secondary" to="/players">
-            <Users size={16} />
-            Manage Players
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-text-secondary)' }}>
-                Avg Composite Rating:
-              </span>
-              <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                Goal: {recruitingGoals.compositeRatingGoal ?? 86.12}+
-              </div>
-            </div>
-            <div
-              style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '50%',
-                background: 'var(--color-primary)',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '16px',
-                fontWeight: '700',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              }}
-            >
-              {avgCompositeRating != null ? avgCompositeRating.toFixed(2) : '-'}
-            </div>
-          </div>
-          <Link className="btn-primary" to={`/review/${Date.now()}`}>
-            <Video size={16} />
-            Start New Review
-          </Link>
-        </div>
-      </header>
+    <div className="page db-page">
 
-      {backupStatus && (
-        <div className="panel" style={{ padding: '12px 16px', background: '#e2e8f0' }}>
-          {backupStatus}
+      {/* ── HEADER ─────────────────────────────────────────────── */}
+      <div className="db-header">
+        <div className="db-header-top">
+          <div>
+            <span className="db-eyebrow">BYU Football · Recruiting Ops</span>
+            <h1 className="db-title">Saturday Review Hub</h1>
+          </div>
+          <div className="db-header-actions">
+            <button className="db-action-btn" onClick={handleBackup}>
+              <Download size={13} /> Backup
+            </button>
+            <button className="db-action-btn" onClick={handleRestoreClick}>
+              <Upload size={13} /> Restore
+            </button>
+            <input ref={fileInputRef} type="file" accept=".json" onChange={handleRestoreFile} style={{ display: 'none' }} />
+            <Link className="db-action-btn" to="/players">
+              <Users size={13} /> HS Players
+            </Link>
+            <Link className="db-action-btn primary" to={`/review/${Date.now()}`}>
+              <Video size={13} /> New Review
+            </Link>
+          </div>
+        </div>
+        <div className="db-kpi-row">
+          <div className="db-kpi">
+            <span className="db-kpi-n">{flaggedPlayers.length}</span>
+            <span className="db-kpi-l">Flagged</span>
+          </div>
+          <div className="db-kpi-divider" />
+          <div className="db-kpi">
+            <span className="db-kpi-n">{games.length}</span>
+            <span className="db-kpi-l">Games</span>
+          </div>
+          <div className="db-kpi-divider" />
+          <div className="db-kpi">
+            <span className="db-kpi-n">{totalStats}</span>
+            <span className="db-kpi-l">Stats Logged</span>
+          </div>
+          <div className="db-kpi-divider" />
+          <div className="db-kpi db-kpi-composite">
+            <span className="db-kpi-n">{avgCompositeRating != null ? avgCompositeRating.toFixed(2) : '—'}</span>
+            <span className="db-kpi-l">Avg Composite</span>
+            <span className="db-kpi-goal">Goal: {recruitingGoals.compositeRatingGoal ?? 86.12}+</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── STATUS MESSAGES ────────────────────────────────────── */}
+      {(backupStatus || exportStatus) && (
+        <div className="db-status-bar">
+          {backupStatus || exportStatus}
         </div>
       )}
 
-      <section className="card-grid">
-        <div className="card">
-          <div className="card-icon">
-            <Users size={20} />
-          </div>
-          <div>
-            <p className="card-label">Flagged Players</p>
-            <h3>{flaggedPlayers.length}</h3>
-            <p className="card-subtext">Ready for Saturday review.</p>
-          </div>
-        </div>
-        <div className="card">
-          <div className="card-icon">
-            <Video size={20} />
-          </div>
-          <div>
-            <p className="card-label">Games Tracked</p>
-            <h3>{games.length}</h3>
-            <p className="card-subtext">Games reviewed this season.</p>
-          </div>
-        </div>
-        <div className="card">
-          <div className="card-icon">
-            <FileText size={20} />
-          </div>
-          <div>
-            <p className="card-label">Stats Logged</p>
-            <h3>{totalStats}</h3>
-            <p className="card-subtext">Tagged clips and stat lines.</p>
-          </div>
-        </div>
-        <div className="card">
-          <div className="card-icon">
-            <Clock size={20} />
-          </div>
-          <div>
-            <p className="card-label">Saturday Checklist</p>
-            <ul className="card-list">
-              <li>Queue flagged players</li>
-              <li>Log stats with timestamps</li>
-              <li>Export stats for coaches</li>
-            </ul>
-          </div>
-        </div>
-      </section>
+      {/* ── MAIN BODY ──────────────────────────────────────────── */}
+      <div className="db-body">
 
-      {/* Activity Feed */}
-      <section className="panel" style={{ marginTop: '24px' }}>
-        <ActivityFeed limit={15} />
-      </section>
+        {/* LEFT COLUMN */}
+        <div className="db-col-left">
 
-      {/* Top Performances */}
-      <section style={{ marginTop: '24px' }}>
-        <TopPerformances />
-      </section>
-
-      {/* Export Section */}
-      <section className="panel" style={{ marginTop: '24px' }}>
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Download size={20} />
-          Export Stats
-        </h3>
-        {exportStatus && (
-          <div style={{ padding: '8px 12px', background: 'var(--color-bg-muted)', borderRadius: '8px', marginBottom: '16px' }}>
-            {exportStatus}
-          </div>
-        )}
-        <div className="export-grid">
-          <div className="export-card">
-            <div className="export-card-header">
-              <Calendar size={20} />
-              <strong>Game Day Export</strong>
+          {/* Flagged Queue */}
+          <div className="db-section">
+            <div className="db-section-header">
+              <Flag size={14} />
+              <span className="db-section-title">Saturday Queue</span>
+              <span className="db-section-count">{filteredFlaggedPlayers.length}</span>
             </div>
-            <p className="helper-text">Export all player stats from a specific game day (e.g., Friday night games).</p>
-            <div className="export-controls">
-              <label className="field" style={{ marginBottom: '12px' }}>
-                Select Date
-                <input
-                  type="date"
-                  value={exportDate}
-                  onChange={(e) => setExportDate(e.target.value)}
-                  style={{ width: '100%' }}
-                />
+            {flaggedPlayers.length === 0 ? (
+              <div className="db-empty">Flag players to build your Saturday watchlist</div>
+            ) : (
+              <>
+                <div className="db-queue-filters">
+                  <div className="db-queue-search">
+                    <Search size={12} />
+                    <input
+                      type="text"
+                      placeholder="Search…"
+                      value={flaggedSearch}
+                      onChange={e => setFlaggedSearch(e.target.value)}
+                    />
+                  </div>
+                  <select className="db-queue-select" value={flaggedPosition} onChange={e => setFlaggedPosition(e.target.value)}>
+                    {flaggedPositions.map(pos => <option key={pos} value={pos}>{pos === 'All' ? 'All Pos' : pos}</option>)}
+                  </select>
+                </div>
+                <ul className="db-queue-list">
+                  {paginatedFlaggedPlayers.map(player => (
+                    <li key={player.id} className="db-queue-item">
+                      <div className="db-queue-info">
+                        <Link to={`/player/${player.id}`} className="db-queue-name">{player.name}</Link>
+                        <span className="db-queue-meta">{player.position || '—'} · {player.school || 'School TBD'}</span>
+                      </div>
+                      <div className="db-queue-actions">
+                        <Link className="db-queue-link" to={`/player/${player.id}/stats`}>Stats</Link>
+                        <Link className="db-queue-link" to="/players">Edit</Link>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {flaggedTotalPages > 1 && (
+                  <div className="db-pager">
+                    <button className="db-pager-btn" onClick={() => setFlaggedPage(p => Math.max(1, p - 1))} disabled={flaggedPage === 1}><ChevronLeft size={13} /></button>
+                    <span className="db-pager-info">{flaggedPage} / {flaggedTotalPages}</span>
+                    <button className="db-pager-btn" onClick={() => setFlaggedPage(p => Math.min(flaggedTotalPages, p + 1))} disabled={flaggedPage === flaggedTotalPages}><ChevronRight size={13} /></button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Games List */}
+          <div className="db-section">
+            <div className="db-section-header">
+              <Video size={14} />
+              <span className="db-section-title">All Games</span>
+              <span className="db-section-count">{sortedGames.length}</span>
+            </div>
+            {sortedGames.length === 0 ? (
+              <div className="db-empty">No games yet — start a review to log stats</div>
+            ) : (
+              <>
+                <ul className="db-games-list">
+                  {paginatedGames.map(game => (
+                    <li key={game.id} className="db-game-item">
+                      <div className="db-game-info">
+                        <span className="db-game-opponent">{game.opponent || 'Opponent TBD'}</span>
+                        <span className="db-game-meta">
+                          <span className="db-game-date">{game.date || 'Date TBD'}</span>
+                          {game.location ? ` · ${game.location}` : ''}
+                        </span>
+                      </div>
+                      <Link className="db-queue-link" to={`/review/${game.id}`}>Open</Link>
+                    </li>
+                  ))}
+                </ul>
+                {totalPages > 1 && (
+                  <div className="db-pager">
+                    <button className="db-pager-btn" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}><ChevronLeft size={13} /></button>
+                    <span className="db-pager-info">{currentPage} / {totalPages}</span>
+                    <button className="db-pager-btn" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}><ChevronRight size={13} /></button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <div className="db-col-right">
+
+          {/* Export Section */}
+          <div className="db-section">
+            <div className="db-section-header">
+              <Download size={14} />
+              <span className="db-section-title">Export Stats</span>
+            </div>
+
+            <div className="db-export-block">
+              <div className="db-export-label">
+                <Calendar size={12} /> Game Day Export
+              </div>
+              <input
+                type="date"
+                className="db-export-date"
+                value={exportDate}
+                onChange={e => setExportDate(e.target.value)}
+              />
+              <div className="db-export-btns">
+                <button className="db-export-btn" onClick={handleGameDayExportPDF}><FileText size={12} /> PDF</button>
+                <button className="db-export-btn" onClick={handleGameDayExportExcel}><Table size={12} /> Excel</button>
+                <button className="db-export-btn" onClick={handleGameDayPreview}><Eye size={12} /> Preview</button>
+                <button className="db-export-btn" onClick={handleGameDayEmail}><Mail size={12} /> Email</button>
+              </div>
+              <label className="db-export-check">
+                <input type="checkbox" checked={sendSelectedOnly} onChange={e => setSendSelectedOnly(e.target.checked)} />
+                Selected positions only
               </label>
-              <div className="export-buttons">
-                <button className="btn-primary" onClick={handleGameDayExportPDF}>
-                  <FileText size={16} />
-                  PDF
-                </button>
-                <button className="btn-secondary" onClick={handleGameDayExportExcel}>
-                  <Table size={16} />
-                  Excel
-                </button>
-                <button className="btn-secondary" onClick={handleGameDayPreview}>
-                  <FileText size={16} />
-                  Preview
-                </button>
-                <button className="btn-secondary" onClick={handleGameDayEmail}>
-                  <Mail size={16} />
-                  Email
-                </button>
-              </div>
-              <div className="export-toggle">
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={sendSelectedOnly}
-                    onChange={(e) => setSendSelectedOnly(e.target.checked)}
-                  />
-                  Send only selected positions
-                </label>
-              </div>
-              {sendSelectedOnly ? (
-                <div className="export-positions">
-                  {availablePositions.map((pos) => (
-                    <label key={pos} className="checkbox">
-                      <input
-                        type="checkbox"
-                        checked={selectedPositions.includes(pos)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedPositions((prev) => [...prev, pos])
-                          } else {
-                            setSelectedPositions((prev) => prev.filter((p) => p !== pos))
-                          }
-                        }}
-                      />
+              {sendSelectedOnly && availablePositions.length > 0 && (
+                <div className="db-export-positions">
+                  {availablePositions.map(pos => (
+                    <label key={pos} className="db-pos-check">
+                      <input type="checkbox" checked={selectedPositions.includes(pos)}
+                        onChange={e => {
+                          if (e.target.checked) setSelectedPositions(prev => [...prev, pos])
+                          else setSelectedPositions(prev => prev.filter(p => p !== pos))
+                        }} />
                       {pos}
                     </label>
                   ))}
                 </div>
-              ) : null}
-              {previewPdfs.length > 0 ? (
-                <div className="preview-list">
-                  {previewPdfs.map((pdf) => (
-                    <div key={pdf.filename} className="preview-item">
+              )}
+              {previewPdfs.length > 0 && (
+                <div className="db-preview-list">
+                  {previewPdfs.map(pdf => (
+                    <div key={pdf.filename} className="db-preview-item">
                       <span>{pdf.positionGroup}</span>
-                      <a className="link" href={pdf.url} target="_blank" rel="noreferrer">
-                        Open PDF
-                      </a>
+                      <a href={pdf.url} target="_blank" rel="noreferrer" className="db-queue-link">Open PDF</a>
                     </div>
                   ))}
                 </div>
-              ) : null}
+              )}
             </div>
-          </div>
-          <div className="export-card">
-            <div className="export-card-header">
-              <Table size={20} />
-              <strong>Season Stats Export</strong>
-            </div>
-            <p className="helper-text">Export cumulative season statistics for all players on your radar.</p>
-            <div className="export-controls" style={{ marginTop: 'auto' }}>
-              <div className="export-buttons">
-                <button className="btn-primary" onClick={handleSeasonExportPDF}>
-                  <FileText size={16} />
-                  PDF
-                </button>
-                <button className="btn-secondary" onClick={handleSeasonExportExcel}>
-                  <Table size={16} />
-                  Excel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <section className="split">
-        <div className="panel">
-          <h3>Flagged Player Queue</h3>
-          {flaggedPlayers.length === 0 ? (
-            <EmptyState icon={Flag} title="No flagged players" subtitle="Flag players to build your Saturday watchlist." />
-          ) : (
-            <>
-              <div className="search-filters">
-                <div className="field-inline">
-                  <Search size={16} />
-                  <input
-                    type="text"
-                    placeholder="Search flagged players..."
-                    value={flaggedSearch}
-                    onChange={(e) => setFlaggedSearch(e.target.value)}
-                  />
-                </div>
-                <select
-                  value={flaggedPosition}
-                  onChange={(e) => setFlaggedPosition(e.target.value)}
-                >
-                  {flaggedPositions.map((pos) => (
-                    <option key={pos} value={pos}>
-                      {pos === 'All' ? 'All Positions' : pos}
-                    </option>
-                  ))}
-                </select>
+            <div className="db-export-divider" />
+
+            <div className="db-export-block">
+              <div className="db-export-label">
+                <Table size={12} /> Season Stats Export
               </div>
-              <ul className="list">
-                {paginatedFlaggedPlayers.map((player) => (
-                  <li key={player.id} className="list-item">
-                    <div>
-                      <strong>{player.name}</strong>
-                      <span>
-                        {player.position || 'Position TBD'} · {player.school || 'School TBD'}
-                      </span>
-                    </div>
-                    <div className="row-actions">
-                      <Link className="link" to={`/player/${player.id}/stats`}>
-                        Stats
-                      </Link>
-                      <Link className="link" to="/players">
-                        Edit
-                      </Link>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              {flaggedTotalPages > 1 && (
-                <div className="pagination">
-                  <button
-                    className="btn-ghost"
-                    onClick={() => setFlaggedPage((p) => Math.max(1, p - 1))}
-                    disabled={flaggedPage === 1}
-                  >
-                    <ChevronLeft size={16} />
-                    Previous
-                  </button>
-                  <span className="pagination-info">
-                    Page {flaggedPage} of {flaggedTotalPages} ({filteredFlaggedPlayers.length} total)
-                  </span>
-                  <button
-                    className="btn-ghost"
-                    onClick={() => setFlaggedPage((p) => Math.min(flaggedTotalPages, p + 1))}
-                    disabled={flaggedPage === flaggedTotalPages}
-                  >
-                    Next
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+              <div className="db-export-btns">
+                <button className="db-export-btn" onClick={handleSeasonExportPDF}><FileText size={12} /> PDF</button>
+                <button className="db-export-btn" onClick={handleSeasonExportExcel}><Table size={12} /> Excel</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Activity Feed */}
+          <div className="db-section db-section-feed">
+            <div className="db-section-header">
+              <ClipboardList size={14} />
+              <span className="db-section-title">Recent Activity</span>
+            </div>
+            <ActivityFeed limit={15} />
+          </div>
+
+          {/* Top Performances */}
+          <div className="db-section">
+            <TopPerformances />
+          </div>
+
         </div>
-        <div className="panel">
-          <h3>All Games ({sortedGames.length})</h3>
-          {sortedGames.length === 0 ? (
-            <EmptyState icon={Video} title="No games yet" subtitle="Start a game review to log stats and export CSV." />
-          ) : (
-            <>
-              <ul className="list">
-                {paginatedGames.map((game) => (
-                  <li key={game.id} className="list-item">
-                    <div>
-                      <strong>{game.opponent || 'Opponent TBD'}</strong>
-                      <span>
-                        {game.date || 'Date TBD'} · {game.location || 'Location TBD'}
-                      </span>
-                    </div>
-                    <Link className="link" to={`/review/${game.id}`}>
-                      Continue
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              {totalPages > 1 && (
-                <div className="pagination">
-                  <button
-                    className="btn-ghost"
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft size={16} />
-                    Previous
-                  </button>
-                  <span className="pagination-info">
-                    Page {currentPage} of {totalPages} ({sortedGames.length} games)
-                  </span>
-                  <button
-                    className="btn-ghost"
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </section>
+      </div>
     </div>
   )
 }

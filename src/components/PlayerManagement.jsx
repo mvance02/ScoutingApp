@@ -938,15 +938,12 @@ function PlayerManagement() {
       </div>
 
       {/* ── ADD PLAYER ACCORDION ────────────────────────────────── */}
-      <div className="pb-add-toggle">
-        <button
-          className="pb-add-toggle-btn"
-          onClick={() => setShowAddForm(v => !v)}
-        >
-          <Plus size={15} />
-          {showAddForm ? 'Hide Form' : 'Add HS Player'}
-          <span className="pb-add-chevron" style={{ transform: showAddForm ? 'rotate(180deg)' : 'none' }}>▾</span>
-        </button>
+      <div className="pb-add-toggle" onClick={() => setShowAddForm(prev => !prev)}>
+        <div className="pb-add-toggle-left">
+          <div className="pb-add-toggle-icon">{showAddForm ? '−' : '+'}</div>
+          <span className="pb-add-toggle-label">{showAddForm ? 'Close Form' : 'Add HS Player'}</span>
+        </div>
+        <span className={`pb-add-toggle-chevron${showAddForm ? ' open' : ''}`}>▼</span>
         {showAddForm && (
           <form className="pb-add-form form-grid" onSubmit={handleAddPlayer}>
             <label className="field">

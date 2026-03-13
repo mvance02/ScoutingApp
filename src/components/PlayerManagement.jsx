@@ -944,7 +944,8 @@ function PlayerManagement() {
           <span className="pb-add-toggle-label">{showAddForm ? 'Close Form' : 'Add HS Player'}</span>
         </div>
         <span className={`pb-add-toggle-chevron${showAddForm ? ' open' : ''}`}>▼</span>
-        {showAddForm && (
+      </div>
+      {showAddForm && (
           <div className="pb-add-form-panel">
           <form className="form-grid" onSubmit={handleAddPlayer}>
             <label className="field">
@@ -1077,7 +1078,6 @@ function PlayerManagement() {
           </form>
           </div>
         )}
-      </div>
 
       {duplicateWarning && (
         <div className="error-message" style={{ margin: '0 0 14px' }}>{duplicateWarning}</div>

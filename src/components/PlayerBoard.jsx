@@ -155,6 +155,7 @@ function PlayerBoard() {
   const [formErrors, setFormErrors] = useState({})
   const [editErrors, setEditErrors] = useState({})
   const [typeFilter, setTypeFilter] = useState('All') // 'All' | 'JUCO' | 'Transfer'
+  const [showAddForm, setShowAddForm] = useState(false)
   const photoInputRef = useRef(null)
   const [form, setForm] = useState({
     name: '',
@@ -646,17 +647,28 @@ function PlayerBoard() {
     return statusObj?.color || 'status-watching'
   }
 
+  const getAccentClass = (status) => {
+    const map = {
+      'Watching': 'pb-accent-watching', 'Evaluating': 'pb-accent-evaluating',
+      'Interested': 'pb-accent-interested', 'Offered': 'pb-accent-offered',
+      'Committed': 'pb-accent-committed', 'Committed Elsewhere': 'pb-accent-elsewhere',
+      'Signed': 'pb-accent-signed', 'Passed': 'pb-accent-passed',
+    }
+    return map[status] || 'pb-accent-default'
+  }
+
+  const getRatingClass = (rating) => {
+    const r = parseFloat(rating)
+    if (r >= 88) return 'high'
+    if (r >= 84) return 'mid'
+    return 'low'
+  }
+
   if (loading) {
     return (
       <div className="page">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div>
-            <div className="skeleton-block skeleton-title" />
-            <div className="skeleton-block skeleton-subtitle" />
-          </div>
-          <div className="skeleton-block skeleton-btn" />
-        </div>
-        <div className="skeleton-block skeleton-panel-sm" />
+        <div className="skeleton-block" style={{ height: 88, borderRadius: 14, marginBottom: 20 }} />
+        <div className="skeleton-block" style={{ height: 52, borderRadius: 10, marginBottom: 16 }} />
         {[1, 2, 3, 4, 5, 6].map(i => (
           <div key={i} className="skeleton-block skeleton-row" />
         ))}
@@ -664,813 +676,433 @@ function PlayerBoard() {
     )
   }
 
+  // Derived stats for stats bar
+  const ratedPlayers = filteredPlayers.filter(p => p.compositeRating != null && !isNaN(parseFloat(p.compositeRating)))
+  const avgComposite = ratedPlayers.length > 0
+    ? (ratedPlayers.reduce((s, p) => s + parseFloat(p.compositeRating), 0) / ratedPlayers.length).toFixed(2)
+    : null
+
   return (
     <div className="page">
-      <header className="page-header">
-        <div>
-          <h2>Prospects</h2>
-          <p>Manage JUCO and transfer prospects.</p>
+      {/* ── HEADER ─────────────────────────────────────────── */}
+      <div className="pb-header">
+        <div className="pb-header-left">
+          <span className="pb-eyebrow">BYU Football · Recruiting</span>
+          <h1 className="pb-title">Prospects Board</h1>
         </div>
-        <button className="btn-secondary" onClick={exportPlayers}>
-          <Download size={16} />
-          Export Players
-        </button>
-      </header>
-
-      <section className="panel">
-        <h3>Add Prospect</h3>
-        <form className="form-grid" onSubmit={handleAddPlayer}>
-          <label className="field">
-            Name
-            <input
-              name="name"
-              value={form.name}
-              onChange={handleChange}
-              placeholder="Player name"
-            />
-            {formErrors.name && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.name}</span>}
-          </label>
-          <label className="field">
-            Type
-            <select name="playerType" value={form.playerType} onChange={handleChange}>
-              <option value="JUCO">JUCO</option>
-              <option value="Transfer">Transfer (D1)</option>
-            </select>
-          </label>
-          <label className="field">
-            Position
-            <input
-              name="position"
-              value={form.position}
-              onChange={handleChange}
-              placeholder="Primary position"
-            />
-          </label>
-          <label className="field">
-            Offense Position
-            <input
-              name="offensePosition"
-              value={form.offensePosition}
-              onChange={handleChange}
-              placeholder="QB/RB/WR (slot)/WR (wideout)/TE/OT/OG"
-            />
-          </label>
-          <label className="field">
-            Defense Position
-            <input
-              name="defensePosition"
-              value={form.defensePosition}
-              onChange={handleChange}
-              placeholder="DL/LB/CB/S"
-            />
-          </label>
-          <label className="field">
-            School
-            <input
-              name="school"
-              value={form.school}
-              onChange={handleChange}
-              placeholder="School name"
-            />
-          </label>
-          <label className="field">
-            Current School Level
-            <select name="currentSchoolLevel" value={form.currentSchoolLevel} onChange={handleChange}>
-              <option value="">— Select —</option>
-              <option value="JUCO D1">JUCO D1</option>
-              <option value="JUCO D2">JUCO D2</option>
-              <option value="P4">P4 (Power 4)</option>
-              <option value="G5">G5 (Group of 5)</option>
-              <option value="FCS">FCS</option>
-              <option value="NAIA">NAIA</option>
-            </select>
-          </label>
-          <label className="field">
-            State (Current School)
-            <input
-              name="state"
-              value={form.state}
-              onChange={handleChange}
-              placeholder="UT, AZ, HI..."
-            />
-          </label>
-          <label className="field">
-            Home State (Originally From)
-            <input
-              name="homeState"
-              value={form.homeState}
-              onChange={handleChange}
-              placeholder="UT, AZ, HI..."
-            />
-          </label>
-          <label className="field">
-            Grad Year
-            <input
-              name="gradYear"
-              value={form.gradYear}
-              onChange={handleChange}
-              placeholder="2026"
-            />
-          </label>
-          <label className="field">
-            Eligibility Years Left
-            <input
-              type="number"
-              name="eligibilityYearsLeft"
-              value={form.eligibilityYearsLeft}
-              onChange={handleChange}
-              placeholder="2"
-              min="0"
-              max="6"
-            />
-          </label>
-          <div className="field">
-            Pipeline Statuses
-            <div className="status-filter">
-              <button
-                type="button"
-                className={`btn-ghost status-filter-trigger${statusMenuOpen ? ' active' : ''}`}
-                onClick={() => setStatusMenuOpen((prev) => !prev)}
-              >
-                Select statuses
-                {form.recruitingStatuses.length > 0 ? ` (${form.recruitingStatuses.length})` : ''}
+        <div className="pb-header-right">
+          <div className="pb-type-tabs">
+            {['All', 'JUCO', 'Transfer'].map(t => (
+              <button key={t} className={`pb-type-tab${typeFilter === t ? ' active' : ''}`}
+                onClick={() => { setTypeFilter(t); setCurrentPage(1) }}>
+                {t}
               </button>
-              {statusMenuOpen ? (
-                <div className="status-filter-menu">
-                  {RECRUITING_STATUSES.map((status) => (
-                    <label key={status.value} className="status-filter-option">
-                      <input
-                        type="checkbox"
-                        checked={form.recruitingStatuses.includes(status.value)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            updateFormStatuses([...form.recruitingStatuses, status.value])
-                          } else {
-                            updateFormStatuses(form.recruitingStatuses.filter((item) => item !== status.value))
-                          }
-                        }}
-                      />
-                      <span>{status.label}</span>
-                    </label>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+            ))}
           </div>
-          {form.recruitingStatuses.includes('Offered') ? (
+          <button className="pb-export-btn" onClick={exportPlayers}>
+            <Download size={13} /> Export
+          </button>
+        </div>
+      </div>
+
+      {/* ── FILTER STRIP ────────────────────────────────────── */}
+      <div className="pb-filter-strip">
+        <div className="pb-search-wrap" style={{ minWidth: 180, flex: '1 1 180px' }}>
+          <Search size={14} style={{ color: 'var(--av2-muted)', flexShrink: 0 }} />
+          <input type="text" placeholder="Search name or school…" value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)} />
+        </div>
+        <select className="pb-filter-select" value={positionFilter} onChange={e => setPositionFilter(e.target.value)}>
+          {POSITIONS.map(pos => <option key={pos} value={pos}>{pos === 'All' ? 'All Positions' : pos}</option>)}
+        </select>
+        <select className="pb-filter-select" value={sideFilter} onChange={e => setSideFilter(e.target.value)}>
+          <option value="All">All Sides</option>
+          <option value="Offense">Offense</option>
+          <option value="Defense">Defense</option>
+        </select>
+        <select className="pb-filter-select" value={recruitingStatusFilter} onChange={e => setRecruitingStatusFilter(e.target.value)}>
+          <option value="">All Statuses</option>
+          {RECRUITING_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+        <input className="pb-filter-input" type="text" placeholder="State" value={stateFilter}
+          onChange={e => setStateFilter(e.target.value)} style={{ width: 60 }} />
+        <input className="pb-filter-input" type="text" placeholder="Grad Yr" value={gradYearFilter}
+          onChange={e => setGradYearFilter(e.target.value)} style={{ width: 72 }} />
+        <input className="pb-filter-input" type="number" placeholder="Yrs left" value={yearsLeftFilter}
+          onChange={e => setYearsLeftFilter(e.target.value)} style={{ width: 74 }} min="0" max="6" />
+        <div className="pb-filter-rating-pair">
+          <input className="pb-filter-input" type="number" placeholder="Min ★" value={compositeRatingMin}
+            onChange={e => setCompositeRatingMin(e.target.value)} min="0" max="100" step="0.01" />
+          <span className="pb-filter-sep">—</span>
+          <input className="pb-filter-input" type="number" placeholder="Max ★" value={compositeRatingMax}
+            onChange={e => setCompositeRatingMax(e.target.value)} min="0" max="100" step="0.01" />
+        </div>
+        <input className="pb-filter-input" type="text" placeholder="School level" value={currentSchoolLevelFilter}
+          onChange={e => setCurrentSchoolLevelFilter(e.target.value)} style={{ width: 110 }} />
+        <label className="pb-flagged-check">
+          <input type="checkbox" checked={flaggedOnly} onChange={e => setFlaggedOnly(e.target.checked)} />
+          Flagged
+        </label>
+      </div>
+
+      {/* ── STATS BAR ───────────────────────────────────────── */}
+      <div className="pb-stats-bar">
+        <div className="pb-stat-item">
+          <span className="pb-stat-value">{filteredPlayers.length}</span>
+          <span className="pb-stat-label">Prospects</span>
+        </div>
+        {avgComposite && (
+          <>
+            <div className="pb-stat-divider" />
+            <div className="pb-stat-item">
+              <span className="pb-stat-value">{avgComposite}</span>
+              <span className="pb-stat-label">Avg Composite</span>
+            </div>
+            <div className="pb-stat-item" style={{ marginLeft: -8 }}>
+              <span className="pb-stat-label" style={{ fontWeight: 400 }}>({ratedPlayers.length} rated)</span>
+            </div>
+          </>
+        )}
+        {filteredPlayers.filter(p => p.flagged).length > 0 && (
+          <>
+            <div className="pb-stat-divider" />
+            <div className="pb-stat-item">
+              <span className="pb-stat-value" style={{ color: '#F59E0B' }}>
+                {filteredPlayers.filter(p => p.flagged).length}
+              </span>
+              <span className="pb-stat-label">Flagged</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── ADD FORM (collapsible) ───────────────────────────── */}
+      <div className="pb-add-toggle" onClick={() => setShowAddForm(prev => !prev)}>
+        <div className="pb-add-toggle-left">
+          <div className="pb-add-toggle-icon">{showAddForm ? '−' : '+'}</div>
+          <span className="pb-add-toggle-label">{showAddForm ? 'Close Form' : 'Add New Prospect'}</span>
+        </div>
+        <span className={`pb-add-toggle-chevron${showAddForm ? ' open' : ''}`}>▼</span>
+      </div>
+
+      {showAddForm && (
+        <div className="pb-add-form-panel">
+          <form className="form-grid" onSubmit={handleAddPlayer}>
             <label className="field">
-              Offered Date *
-              <input
-                type="date"
-                name="offeredDate"
-                value={form.offeredDate}
-                onChange={handleChange}
-                required
-              />
-              {formErrors.offeredDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.offeredDate}</span>}
+              Name
+              <input name="name" value={form.name} onChange={handleChange} placeholder="Player name" />
+              {formErrors.name && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.name}</span>}
             </label>
-          ) : null}
-          {(form.recruitingStatuses.includes('Committed') || form.recruitingStatuses.includes('Signed')) ? (
             <label className="field">
-              Committed Date *
-              <input
-                type="date"
-                name="committedDate"
-                value={form.committedDate}
-                onChange={handleChange}
-                required
-              />
-              {formErrors.committedDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.committedDate}</span>}
+              Type
+              <select name="playerType" value={form.playerType} onChange={handleChange}>
+                <option value="JUCO">JUCO</option>
+                <option value="Transfer">Transfer (D1)</option>
+              </select>
             </label>
-          ) : null}
-          {form.recruitingStatuses.includes('Committed Elsewhere') ? (
-            <>
+            <label className="field">
+              Position
+              <input name="position" value={form.position} onChange={handleChange} placeholder="Primary position" />
+            </label>
+            <label className="field">
+              Offense Position
+              <input name="offensePosition" value={form.offensePosition} onChange={handleChange} placeholder="QB/RB/WR (slot)/WR (wideout)/TE/OT/OG" />
+            </label>
+            <label className="field">
+              Defense Position
+              <input name="defensePosition" value={form.defensePosition} onChange={handleChange} placeholder="DL/LB/CB/S" />
+            </label>
+            <label className="field">
+              School
+              <input name="school" value={form.school} onChange={handleChange} placeholder="School name" />
+            </label>
+            <label className="field">
+              Current School Level
+              <select name="currentSchoolLevel" value={form.currentSchoolLevel} onChange={handleChange}>
+                <option value="">— Select —</option>
+                <option value="JUCO D1">JUCO D1</option>
+                <option value="JUCO D2">JUCO D2</option>
+                <option value="P4">P4 (Power 4)</option>
+                <option value="G5">G5 (Group of 5)</option>
+                <option value="FCS">FCS</option>
+                <option value="NAIA">NAIA</option>
+              </select>
+            </label>
+            <label className="field">
+              State (Current School)
+              <input name="state" value={form.state} onChange={handleChange} placeholder="UT, AZ, HI..." />
+            </label>
+            <label className="field">
+              Home State (Originally From)
+              <input name="homeState" value={form.homeState} onChange={handleChange} placeholder="UT, AZ, HI..." />
+            </label>
+            <label className="field">
+              Grad Year
+              <input name="gradYear" value={form.gradYear} onChange={handleChange} placeholder="2026" />
+            </label>
+            <label className="field">
+              Eligibility Years Left
+              <input type="number" name="eligibilityYearsLeft" value={form.eligibilityYearsLeft} onChange={handleChange} placeholder="2" min="0" max="6" />
+            </label>
+            <div className="field">
+              Pipeline Statuses
+              <div className="status-filter">
+                <button type="button" className={`btn-ghost status-filter-trigger${statusMenuOpen ? ' active' : ''}`}
+                  onClick={() => setStatusMenuOpen(prev => !prev)}>
+                  Select statuses{form.recruitingStatuses.length > 0 ? ` (${form.recruitingStatuses.length})` : ''}
+                </button>
+                {statusMenuOpen && (
+                  <div className="status-filter-menu">
+                    {RECRUITING_STATUSES.map(status => (
+                      <label key={status.value} className="status-filter-option">
+                        <input type="checkbox" checked={form.recruitingStatuses.includes(status.value)}
+                          onChange={e => {
+                            if (e.target.checked) updateFormStatuses([...form.recruitingStatuses, status.value])
+                            else updateFormStatuses(form.recruitingStatuses.filter(item => item !== status.value))
+                          }} />
+                        <span>{status.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            {form.recruitingStatuses.includes('Offered') && (
               <label className="field">
-                Committed School
-                <input
-                  name="committedSchool"
-                  value={form.committedSchool}
-                  onChange={handleChange}
-                  placeholder="School name"
-                />
+                Offered Date *
+                <input type="date" name="offeredDate" value={form.offeredDate} onChange={handleChange} required />
+                {formErrors.offeredDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.offeredDate}</span>}
               </label>
+            )}
+            {(form.recruitingStatuses.includes('Committed') || form.recruitingStatuses.includes('Signed')) && (
               <label className="field">
                 Committed Date *
-                <input
-                  type="date"
-                  name="committedDate"
-                  value={form.committedDate}
-                  onChange={handleChange}
-                  required
-                />
+                <input type="date" name="committedDate" value={form.committedDate} onChange={handleChange} required />
+                {formErrors.committedDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.committedDate}</span>}
               </label>
-            </>
-          ) : null}
-          <label className="field">
-            Composite Rating
-            <input
-              type="number"
-              name="compositeRating"
-              value={form.compositeRating}
-              onChange={handleChange}
-              placeholder="0.00"
-              min="0"
-              max="100"
-              step="0.01"
-            />
-          </label>
-          <label className="field">
-            Portal Status
-            <select
-              name="portalStatus"
-              value={form.portalStatus}
-              onChange={handleChange}
-            >
-              {PORTAL_STATUSES.map((status) => (
-                <option key={status || 'none'} value={status}>
-                  {status || 'Not specified'}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field field-wide">
-            Reason for Transferring
-            <input
-              name="transferReason"
-              value={form.transferReason}
-              onChange={handleChange}
-              placeholder="Playing time, scheme fit, location, etc."
-            />
-          </label>
-          <label className="field field-wide">
-            Recruiting Context
-            <input
-              name="recruitingContext"
-              value={form.recruitingContext}
-              onChange={handleChange}
-              placeholder="How they came on the radar, eval summary, etc."
-            />
-          </label>
-          <label className="field field-wide">
-            Immediate Impact Tag
-            <input
-              name="immediateImpactTag"
-              value={form.immediateImpactTag}
-              onChange={handleChange}
-              placeholder="Can help now / Developmental / Emergency depth"
-            />
-          </label>
-          <label className="field field-wide">
-            Risk Notes
-            <input
-              name="riskNotes"
-              value={form.riskNotes}
-              onChange={handleChange}
-              placeholder="Academic, off-field, injury risk, etc."
-            />
-          </label>
-          <label className="field">
-            Type
-            <select
-              name="playerType"
-              value={form.playerType || 'JUCO'}
-              onChange={handleChange}
-            >
-              <option value="JUCO">JUCO</option>
-              <option value="Transfer">Transfer</option>
-            </select>
-          </label>
-          <label className="checkbox" style={{ gridColumn: '1 / -1' }}>
-            <input
-              type="checkbox"
-              name="isLds"
-              checked={form.isLds || false}
-              onChange={(e) => setForm((prev) => ({ ...prev, isLds: e.target.checked }))}
-            />
-            <span>LDS</span>
-          </label>
-          <label className="field field-wide">
-            Notes
-            <input
-              name="notes"
-              value={form.notes}
-              onChange={handleChange}
-              placeholder="Scouting notes"
-            />
-          </label>
-          <div className="field field-wide">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>Other Offers / Competitors</span>
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() =>
-                  setForm((prev) => ({
-                    ...prev,
-                    otherOffers: [
-                      ...(prev.otherOffers || []),
-                      { school: '', interest: 'High' },
-                    ],
-                  }))
-                }
-              >
-                <Plus size={14} />
-                Add Competitor
-              </button>
-            </div>
-            {(form.otherOffers || []).length === 0 ? (
-              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                Track main competing schools and how serious they are.
-              </p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
-                {form.otherOffers.map((offer, index) => (
-                  <div
-                    key={index}
-                    style={{ display: 'flex', gap: '8px', alignItems: 'center' }}
-                  >
-                    <input
-                      style={{ flex: 1 }}
-                      placeholder="School"
-                      value={offer.school}
-                      onChange={(e) => {
-                        const next = [...form.otherOffers]
-                        next[index] = { ...next[index], school: e.target.value }
-                        setForm((prev) => ({ ...prev, otherOffers: next }))
-                      }}
-                    />
-                    <select
-                      value={offer.interest}
-                      onChange={(e) => {
-                        const next = [...form.otherOffers]
-                        next[index] = { ...next[index], interest: e.target.value }
-                        setForm((prev) => ({ ...prev, otherOffers: next }))
-                      }}
-                    >
-                      {INTEREST_LEVELS.map((lvl) => (
-                        <option key={lvl} value={lvl}>
-                          {lvl}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="btn-ghost danger"
-                      onClick={() => {
-                        const next = [...form.otherOffers]
-                        next.splice(index, 1)
-                        setForm((prev) => ({ ...prev, otherOffers: next }))
-                      }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
             )}
-          </div>
-          <button className="btn-primary" type="submit">
-            <Plus size={16} />
-            Add Player
-          </button>
-        </form>
-      </section>
-
-      <section className="panel">
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          Prospects ({filteredPlayers.length})
-          {(() => {
-            const rated = filteredPlayers.filter((p) => p.compositeRating != null && !isNaN(parseFloat(p.compositeRating)))
-            if (rated.length === 0) return null
-            const avg = rated.reduce((sum, p) => sum + parseFloat(p.compositeRating), 0) / rated.length
-            return (
-              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
-                Avg Composite: {avg.toFixed(2)} ({rated.length} rated)
-              </span>
-            )
-          })()}
-        </h3>
-
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          {['All', 'JUCO', 'Transfer'].map((t) => (
-            <button
-              key={t}
-              className={`analytics-filter-pill${typeFilter === t ? ' active' : ''}`}
-              onClick={() => { setTypeFilter(t); setCurrentPage(1) }}
-            >
-              {t}
+            {form.recruitingStatuses.includes('Committed Elsewhere') && (
+              <>
+                <label className="field">
+                  Committed School
+                  <input name="committedSchool" value={form.committedSchool} onChange={handleChange} placeholder="School name" />
+                </label>
+                <label className="field">
+                  Committed Date *
+                  <input type="date" name="committedDate" value={form.committedDate} onChange={handleChange} required />
+                </label>
+              </>
+            )}
+            <label className="field">
+              Composite Rating
+              <input type="number" name="compositeRating" value={form.compositeRating} onChange={handleChange} placeholder="0.00" min="0" max="100" step="0.01" />
+            </label>
+            <label className="field">
+              Portal Status
+              <select name="portalStatus" value={form.portalStatus} onChange={handleChange}>
+                {PORTAL_STATUSES.map(status => (
+                  <option key={status || 'none'} value={status}>{status || 'Not specified'}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field field-wide">
+              Reason for Transferring
+              <input name="transferReason" value={form.transferReason} onChange={handleChange} placeholder="Playing time, scheme fit, location, etc." />
+            </label>
+            <label className="field field-wide">
+              Recruiting Context
+              <input name="recruitingContext" value={form.recruitingContext} onChange={handleChange} placeholder="How they came on the radar, eval summary, etc." />
+            </label>
+            <label className="field field-wide">
+              Immediate Impact Tag
+              <input name="immediateImpactTag" value={form.immediateImpactTag} onChange={handleChange} placeholder="Can help now / Developmental / Emergency depth" />
+            </label>
+            <label className="field field-wide">
+              Risk Notes
+              <input name="riskNotes" value={form.riskNotes} onChange={handleChange} placeholder="Academic, off-field, injury risk, etc." />
+            </label>
+            <label className="field">
+              Type
+              <select name="playerType" value={form.playerType || 'JUCO'} onChange={handleChange}>
+                <option value="JUCO">JUCO</option>
+                <option value="Transfer">Transfer</option>
+              </select>
+            </label>
+            <label className="checkbox" style={{ gridColumn: '1 / -1' }}>
+              <input type="checkbox" name="isLds" checked={form.isLds || false}
+                onChange={e => setForm(prev => ({ ...prev, isLds: e.target.checked }))} />
+              <span>LDS</span>
+            </label>
+            <label className="field field-wide">
+              Notes
+              <input name="notes" value={form.notes} onChange={handleChange} placeholder="Scouting notes" />
+            </label>
+            <div className="field field-wide">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Other Offers / Competitors</span>
+                <button type="button" className="btn-ghost"
+                  onClick={() => setForm(prev => ({ ...prev, otherOffers: [...(prev.otherOffers || []), { school: '', interest: 'High' }] }))}>
+                  <Plus size={14} /> Add Competitor
+                </button>
+              </div>
+              {(form.otherOffers || []).length === 0 ? (
+                <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '4px' }}>Track main competing schools and how serious they are.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                  {form.otherOffers.map((offer, index) => (
+                    <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input style={{ flex: 1 }} placeholder="School" value={offer.school}
+                        onChange={e => { const next = [...form.otherOffers]; next[index] = { ...next[index], school: e.target.value }; setForm(prev => ({ ...prev, otherOffers: next })) }} />
+                      <select value={offer.interest}
+                        onChange={e => { const next = [...form.otherOffers]; next[index] = { ...next[index], interest: e.target.value }; setForm(prev => ({ ...prev, otherOffers: next })) }}>
+                        {INTEREST_LEVELS.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
+                      </select>
+                      <button type="button" className="btn-ghost danger"
+                        onClick={() => { const next = [...form.otherOffers]; next.splice(index, 1); setForm(prev => ({ ...prev, otherOffers: next })) }}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button className="btn-primary" type="submit">
+              <Plus size={16} /> Add Player
             </button>
-          ))}
+          </form>
         </div>
+      )}
 
-        <div className="search-filters">
-          <div className="field-inline">
-            <Search size={16} />
-            <input
-              type="text"
-              placeholder="Search by name or school..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)}>
-            {POSITIONS.map((pos) => (
-              <option key={pos} value={pos}>
-                {pos === 'All' ? 'All Positions' : pos}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            placeholder="State"
-            value={stateFilter}
-            onChange={(e) => setStateFilter(e.target.value)}
-            style={{ width: '80px' }}
-          />
-          <input
-            type="text"
-            placeholder="Grad Year"
-            value={gradYearFilter}
-            onChange={(e) => setGradYearFilter(e.target.value)}
-            style={{ width: '100px' }}
-          />
-          <input
-            type="number"
-            placeholder="Years Left"
-            value={yearsLeftFilter}
-            onChange={(e) => setYearsLeftFilter(e.target.value)}
-            style={{ width: '100px' }}
-            min="0"
-            max="6"
-          />
-          <select value={sideFilter} onChange={(e) => setSideFilter(e.target.value)}>
-            <option value="All">All Sides</option>
-            <option value="Offense">Offense</option>
-            <option value="Defense">Defense</option>
-          </select>
-          <select
-            value={recruitingStatusFilter}
-            onChange={(e) => setRecruitingStatusFilter(e.target.value)}
-          >
-            <option value="">All Statuses</option>
-            {RECRUITING_STATUSES.map((status) => (
-              <option key={status.value} value={status.value}>
-                {status.label}
-              </option>
-            ))}
-          </select>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <input
-              type="number"
-              placeholder="Min Rating"
-              value={compositeRatingMin}
-              onChange={(e) => setCompositeRatingMin(e.target.value)}
-              style={{ width: '90px', padding: 'var(--spacing-sm) var(--spacing-md)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}
-              min="0"
-              max="100"
-              step="0.01"
-            />
-            <span style={{ color: 'var(--color-text-muted)' }}>-</span>
-            <input
-              type="number"
-              placeholder="Max Rating"
-              value={compositeRatingMax}
-              onChange={(e) => setCompositeRatingMax(e.target.value)}
-              style={{ width: '90px', padding: 'var(--spacing-sm) var(--spacing-md)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}
-              min="0"
-              max="100"
-              step="0.01"
-            />
-          </div>
-          <input
-            type="text"
-            placeholder="Current School Level"
-            value={currentSchoolLevelFilter}
-            onChange={(e) => setCurrentSchoolLevelFilter(e.target.value)}
-            style={{ width: '150px' }}
-          />
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={flaggedOnly}
-              onChange={(e) => setFlaggedOnly(e.target.checked)}
-            />
-            Flagged only
-          </label>
-        </div>
+      {/* ── PLAYER LIST ─────────────────────────────────────── */}
+      {duplicateWarning && (
+        <div className="error-message" style={{ marginBottom: 14 }}>{duplicateWarning}</div>
+      )}
 
-        {duplicateWarning && (
-          <div className="error-message" style={{ marginBottom: '16px' }}>
-            {duplicateWarning}
-          </div>
-        )}
-        {filteredPlayers.length === 0 ? (
-          players.length === 0
-            ? <EmptyState icon={UserPlus} title="No prospects yet" subtitle="Add a JUCO or transfer player to get started." />
-            : <EmptyState icon={SearchX} title="No prospects match your filters" subtitle="Try adjusting your search or filters." />
-        ) : (
-          <>
-            <ul className="list">
-              {paginatedPlayers.map((player) => {
+      {filteredPlayers.length === 0 ? (
+        players.length === 0
+          ? <EmptyState icon={UserPlus} title="No prospects yet" subtitle="Add a JUCO or transfer player to get started." />
+          : <EmptyState icon={SearchX} title="No prospects match your filters" subtitle="Try adjusting your search or filters." />
+      ) : (
+        <>
+          <ul className="pb-list">
+            {paginatedPlayers.map(player => {
               const playerAssignments = getPlayerAssignments(player.id)
+              const primaryStatus = (player.recruitingStatuses || ['Watching'])[0]
+              const accentClass = getAccentClass(primaryStatus)
+              const hasRating = player.compositeRating != null && !isNaN(parseFloat(player.compositeRating))
+
               return (
-                <li key={player.id} className="list-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
+                <li key={player.id} className="pb-card">
                   {editingPlayerId === player.id ? (
-                    // Edit Mode
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <PlayerAvatar name={player.name} url={player.profilePictureUrl} size={56} />
-                        <input
-                          ref={photoInputRef}
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          style={{ display: 'none' }}
-                          onChange={(e) => handlePhotoUpload(player.id, e.target.files[0])}
-                        />
-                        <button
-                          type="button"
-                          className="btn-ghost"
-                          onClick={() => photoInputRef.current?.click()}
-                          disabled={photoUploading}
-                        >
-                          <Camera size={16} />
-                          {photoUploading ? 'Uploading...' : player.profilePictureUrl ? 'Change Photo' : 'Add Photo'}
+                    <div className="pb-card-edit">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                        <PlayerAvatar name={player.name} url={player.profilePictureUrl} size={52} />
+                        <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp"
+                          style={{ display: 'none' }} onChange={e => handlePhotoUpload(player.id, e.target.files[0])} />
+                        <button type="button" className="btn-ghost" onClick={() => photoInputRef.current?.click()} disabled={photoUploading}>
+                          <Camera size={16} /> {photoUploading ? 'Uploading...' : player.profilePictureUrl ? 'Change Photo' : 'Add Photo'}
                         </button>
                         {player.profilePictureUrl && (
-                          <button
-                            type="button"
-                            className="btn-ghost danger"
-                            onClick={() => handleDeletePhoto(player.id)}
-                          >
-                            <Trash2 size={14} />
-                            Remove Photo
+                          <button type="button" className="btn-ghost danger" onClick={() => handleDeletePhoto(player.id)}>
+                            <Trash2 size={14} /> Remove Photo
                           </button>
                         )}
                       </div>
                       <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-                        <label className="field">
-                          Name
-                          <input name="name" value={editForm.name} onChange={handleEditChange} />
-                          {editErrors.name && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{editErrors.name}</span>}
+                        <label className="field">Name<input name="name" value={editForm.name} onChange={handleEditChange} />
+                          {editErrors.name && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px' }}>{editErrors.name}</span>}
                         </label>
-                        <label className="field">
-                          Position
-                          <input name="position" value={editForm.position} onChange={handleEditChange} />
+                        <label className="field">Position<input name="position" value={editForm.position} onChange={handleEditChange} /></label>
+                        <label className="field">Offense Pos<input name="offensePosition" value={editForm.offensePosition} onChange={handleEditChange} /></label>
+                        <label className="field">Defense Pos<input name="defensePosition" value={editForm.defensePosition} onChange={handleEditChange} /></label>
+                        <label className="field">School<input name="school" value={editForm.school} onChange={handleEditChange} /></label>
+                        <label className="field">Current School Level<input name="currentSchoolLevel" value={editForm.currentSchoolLevel} onChange={handleEditChange} /></label>
+                        <label className="field">State<input name="state" value={editForm.state} onChange={handleEditChange} /></label>
+                        <label className="field">Home State<input name="homeState" value={editForm.homeState || ''} onChange={handleEditChange} /></label>
+                        <label className="field">Grad Year<input name="gradYear" value={editForm.gradYear} onChange={handleEditChange} /></label>
+                        <label className="field">Eligibility Years Left
+                          <input type="number" name="eligibilityYearsLeft" value={editForm.eligibilityYearsLeft} onChange={handleEditChange} min="0" max="6" />
                         </label>
-                        <label className="field">
-                          Offense Pos
-                          <input name="offensePosition" value={editForm.offensePosition} onChange={handleEditChange} />
-                        </label>
-                        <label className="field">
-                          Defense Pos
-                          <input name="defensePosition" value={editForm.defensePosition} onChange={handleEditChange} />
-                        </label>
-                        <label className="field">
-                          School
-                          <input name="school" value={editForm.school} onChange={handleEditChange} />
-                        </label>
-                        <label className="field">
-                          Current School Level
-                          <input
-                            name="currentSchoolLevel"
-                            value={editForm.currentSchoolLevel}
-                            onChange={handleEditChange}
-                          />
-                        </label>
-                        <label className="field">
-                          State (Current School)
-                          <input name="state" value={editForm.state} onChange={handleEditChange} />
-                        </label>
-                        <label className="field">
-                          Home State (Originally From)
-                          <input name="homeState" value={editForm.homeState || ''} onChange={handleEditChange} />
-                        </label>
-                        <label className="field">
-                          Grad Year
-                          <input name="gradYear" value={editForm.gradYear} onChange={handleEditChange} />
-                        </label>
-                        <label className="field">
-                          Eligibility Years Left
-                          <input
-                            type="number"
-                            name="eligibilityYearsLeft"
-                            value={editForm.eligibilityYearsLeft}
-                            onChange={handleEditChange}
-                            min="0"
-                            max="6"
-                          />
-                        </label>
-                        <div className="field">
-                          Pipeline Statuses
+                        <div className="field">Pipeline Statuses
                           <div className="status-filter">
-                            <button
-                              type="button"
-                              className={`btn-ghost status-filter-trigger${editStatusMenuOpenId === player.id ? ' active' : ''}`}
-                              onClick={() =>
-                                setEditStatusMenuOpenId((prev) => (prev === player.id ? null : player.id))
-                              }
-                            >
-                              Select statuses
-                              {editForm.recruitingStatuses?.length ? ` (${editForm.recruitingStatuses.length})` : ''}
+                            <button type="button" className={`btn-ghost status-filter-trigger${editStatusMenuOpenId === player.id ? ' active' : ''}`}
+                              onClick={() => setEditStatusMenuOpenId(prev => prev === player.id ? null : player.id)}>
+                              Select statuses{editForm.recruitingStatuses?.length ? ` (${editForm.recruitingStatuses.length})` : ''}
                             </button>
-                            {editStatusMenuOpenId === player.id ? (
+                            {editStatusMenuOpenId === player.id && (
                               <div className="status-filter-menu">
-                                {RECRUITING_STATUSES.map((status) => (
+                                {RECRUITING_STATUSES.map(status => (
                                   <label key={status.value} className="status-filter-option">
-                                    <input
-                                      type="checkbox"
-                                      checked={(editForm.recruitingStatuses || []).includes(status.value)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          updateEditStatuses([...(editForm.recruitingStatuses || []), status.value])
-                                        } else {
-                                          updateEditStatuses(
-                                            (editForm.recruitingStatuses || []).filter((item) => item !== status.value)
-                                          )
-                                        }
-                                      }}
-                                    />
+                                    <input type="checkbox" checked={(editForm.recruitingStatuses || []).includes(status.value)}
+                                      onChange={e => {
+                                        if (e.target.checked) updateEditStatuses([...(editForm.recruitingStatuses || []), status.value])
+                                        else updateEditStatuses((editForm.recruitingStatuses || []).filter(item => item !== status.value))
+                                      }} />
                                     <span>{status.label}</span>
                                   </label>
                                 ))}
                               </div>
-                            ) : null}
+                            )}
                           </div>
                         </div>
-                        {(editForm.recruitingStatuses || []).includes('Offered') ? (
-                          <label className="field">
-                            Offered Date *
-                            <input
-                              type="date"
-                              name="offeredDate"
-                              value={editForm.offeredDate || ''}
-                              onChange={handleEditChange}
-                              required
-                            />
-                            {editErrors.offeredDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{editErrors.offeredDate}</span>}
+                        {(editForm.recruitingStatuses || []).includes('Offered') && (
+                          <label className="field">Offered Date *
+                            <input type="date" name="offeredDate" value={editForm.offeredDate || ''} onChange={handleEditChange} required />
+                            {editErrors.offeredDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px' }}>{editErrors.offeredDate}</span>}
                           </label>
-                        ) : null}
-                        {((editForm.recruitingStatuses || []).includes('Committed') || (editForm.recruitingStatuses || []).includes('Signed')) ? (
-                          <label className="field">
-                            Committed Date *
-                            <input
-                              type="date"
-                              name="committedDate"
-                              value={editForm.committedDate || ''}
-                              onChange={handleEditChange}
-                              required
-                            />
-                            {editErrors.committedDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{editErrors.committedDate}</span>}
+                        )}
+                        {((editForm.recruitingStatuses || []).includes('Committed') || (editForm.recruitingStatuses || []).includes('Signed')) && (
+                          <label className="field">Committed Date *
+                            <input type="date" name="committedDate" value={editForm.committedDate || ''} onChange={handleEditChange} required />
+                            {editErrors.committedDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px' }}>{editErrors.committedDate}</span>}
                           </label>
-                        ) : null}
-                        {(editForm.recruitingStatuses || []).includes('Committed Elsewhere') ? (
+                        )}
+                        {(editForm.recruitingStatuses || []).includes('Committed Elsewhere') && (
                           <>
-                            <label className="field">
-                              Committed School
-                              <input name="committedSchool" value={editForm.committedSchool || ''} onChange={handleEditChange} placeholder="School name" />
-                            </label>
-                            <label className="field">
-                              Committed Date *
-                              <input type="date" name="committedDate" value={editForm.committedDate || ''} onChange={handleEditChange} required />
-                            </label>
+                            <label className="field">Committed School<input name="committedSchool" value={editForm.committedSchool || ''} onChange={handleEditChange} placeholder="School name" /></label>
+                            <label className="field">Committed Date *<input type="date" name="committedDate" value={editForm.committedDate || ''} onChange={handleEditChange} required /></label>
                           </>
-                        ) : null}
-                        <label className="field">
-                          Composite Rating
-                          <input
-                            type="number"
-                            name="compositeRating"
-                            value={editForm.compositeRating || ''}
-                            onChange={handleEditChange}
-                            placeholder="0.00"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                          />
+                        )}
+                        <label className="field">Composite Rating
+                          <input type="number" name="compositeRating" value={editForm.compositeRating || ''} onChange={handleEditChange} placeholder="0.00" min="0" max="100" step="0.01" />
                         </label>
-                        <label className="field">
-                          Portal Status
-                          <select
-                            name="portalStatus"
-                            value={editForm.portalStatus || ''}
-                            onChange={handleEditChange}
-                          >
-                            {PORTAL_STATUSES.map((status) => (
-                              <option key={status || 'none'} value={status}>
-                                {status || 'Not specified'}
-                              </option>
-                            ))}
+                        <label className="field">Portal Status
+                          <select name="portalStatus" value={editForm.portalStatus || ''} onChange={handleEditChange}>
+                            {PORTAL_STATUSES.map(status => <option key={status || 'none'} value={status}>{status || 'Not specified'}</option>)}
                           </select>
                         </label>
                         <label className="checkbox" style={{ gridColumn: '1 / -1' }}>
-                          <input
-                            type="checkbox"
-                            name="isLds"
-                            checked={editForm.isLds || false}
-                            onChange={(e) => setEditForm((prev) => ({ ...prev, isLds: e.target.checked }))}
-                          />
+                          <input type="checkbox" name="isLds" checked={editForm.isLds || false}
+                            onChange={e => setEditForm(prev => ({ ...prev, isLds: e.target.checked }))} />
                           <span>LDS</span>
                         </label>
-                        <label className="field" style={{ gridColumn: '1 / -1' }}>
-                          Notes
-                          <input name="notes" value={editForm.notes} onChange={handleEditChange} />
-                        </label>
-                        <label className="field" style={{ gridColumn: '1 / -1' }}>
-                          Reason for Transferring
-                          <input
-                            name="transferReason"
-                            value={editForm.transferReason || ''}
-                            onChange={handleEditChange}
-                          />
-                        </label>
-                        <label className="field" style={{ gridColumn: '1 / -1' }}>
-                          Recruiting Context
-                          <input
-                            name="recruitingContext"
-                            value={editForm.recruitingContext || ''}
-                            onChange={handleEditChange}
-                          />
-                        </label>
-                        <label className="field" style={{ gridColumn: '1 / -1' }}>
-                          Immediate Impact Tag
-                          <input
-                            name="immediateImpactTag"
-                            value={editForm.immediateImpactTag || ''}
-                            onChange={handleEditChange}
-                          />
-                        </label>
-                        <label className="field" style={{ gridColumn: '1 / -1' }}>
-                          Risk Notes
-                          <input
-                            name="riskNotes"
-                            value={editForm.riskNotes || ''}
-                            onChange={handleEditChange}
-                          />
-                        </label>
+                        <label className="field" style={{ gridColumn: '1 / -1' }}>Notes<input name="notes" value={editForm.notes} onChange={handleEditChange} /></label>
+                        <label className="field" style={{ gridColumn: '1 / -1' }}>Reason for Transferring<input name="transferReason" value={editForm.transferReason || ''} onChange={handleEditChange} /></label>
+                        <label className="field" style={{ gridColumn: '1 / -1' }}>Recruiting Context<input name="recruitingContext" value={editForm.recruitingContext || ''} onChange={handleEditChange} /></label>
+                        <label className="field" style={{ gridColumn: '1 / -1' }}>Immediate Impact Tag<input name="immediateImpactTag" value={editForm.immediateImpactTag || ''} onChange={handleEditChange} /></label>
+                        <label className="field" style={{ gridColumn: '1 / -1' }}>Risk Notes<input name="riskNotes" value={editForm.riskNotes || ''} onChange={handleEditChange} /></label>
                         <div className="field" style={{ gridColumn: '1 / -1' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span>Other Offers / Competitors</span>
-                            <button
-                              type="button"
-                              className="btn-ghost"
-                              onClick={() =>
-                                setEditForm((prev) => ({
-                                  ...prev,
-                                  otherOffers: [
-                                    ...(prev.otherOffers || []),
-                                    { school: '', interest: 'High' },
-                                  ],
-                                }))
-                              }
-                            >
-                              <Plus size={14} />
-                              Add Competitor
+                            <button type="button" className="btn-ghost"
+                              onClick={() => setEditForm(prev => ({ ...prev, otherOffers: [...(prev.otherOffers || []), { school: '', interest: 'High' }] }))}>
+                              <Plus size={14} /> Add Competitor
                             </button>
                           </div>
                           {(editForm.otherOffers || []).length === 0 ? (
-                            <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                              Track main competing schools and how serious they are.
-                            </p>
+                            <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '4px' }}>Track main competing schools and how serious they are.</p>
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
                               {editForm.otherOffers.map((offer, index) => (
-                                <div
-                                  key={index}
-                                  style={{ display: 'flex', gap: '8px', alignItems: 'center' }}
-                                >
-                                  <input
-                                    style={{ flex: 1 }}
-                                    placeholder="School"
-                                    value={offer.school}
-                                    onChange={(e) => {
-                                      const next = [...(editForm.otherOffers || [])]
-                                      next[index] = { ...next[index], school: e.target.value }
-                                      setEditForm((prev) => ({ ...prev, otherOffers: next }))
-                                    }}
-                                  />
-                                  <select
-                                    value={offer.interest}
-                                    onChange={(e) => {
-                                      const next = [...(editForm.otherOffers || [])]
-                                      next[index] = { ...next[index], interest: e.target.value }
-                                      setEditForm((prev) => ({ ...prev, otherOffers: next }))
-                                    }}
-                                  >
-                                    {INTEREST_LEVELS.map((lvl) => (
-                                      <option key={lvl} value={lvl}>
-                                        {lvl}
-                                      </option>
-                                    ))}
+                                <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                  <input style={{ flex: 1 }} placeholder="School" value={offer.school}
+                                    onChange={e => { const next = [...(editForm.otherOffers || [])]; next[index] = { ...next[index], school: e.target.value }; setEditForm(prev => ({ ...prev, otherOffers: next })) }} />
+                                  <select value={offer.interest}
+                                    onChange={e => { const next = [...(editForm.otherOffers || [])]; next[index] = { ...next[index], interest: e.target.value }; setEditForm(prev => ({ ...prev, otherOffers: next })) }}>
+                                    {INTEREST_LEVELS.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
                                   </select>
-                                  <button
-                                    type="button"
-                                    className="btn-ghost danger"
-                                    onClick={() => {
-                                      const next = [...(editForm.otherOffers || [])]
-                                      next.splice(index, 1)
-                                      setEditForm((prev) => ({ ...prev, otherOffers: next }))
-                                    }}
-                                  >
+                                  <button type="button" className="btn-ghost danger"
+                                    onClick={() => { const next = [...(editForm.otherOffers || [])]; next.splice(index, 1); setEditForm(prev => ({ ...prev, otherOffers: next })) }}>
                                     <Trash2 size={14} />
                                   </button>
                                 </div>
@@ -1479,133 +1111,83 @@ function PlayerBoard() {
                           )}
                         </div>
                       </div>
-                      <div className="row-actions">
-                        <button className="btn-primary" onClick={saveEditing}>
-                          <Check size={16} />
-                          Save
-                        </button>
-                        <button className="btn-secondary" onClick={cancelEditing}>
-                          <X size={16} />
-                          Cancel
-                        </button>
+                      <div className="row-actions" style={{ marginTop: 12 }}>
+                        <button className="btn-primary" onClick={saveEditing}><Check size={16} /> Save</button>
+                        <button className="btn-secondary" onClick={cancelEditing}><X size={16} /> Cancel</button>
                       </div>
                     </div>
                   ) : (
-                    // View Mode
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <PlayerAvatar name={player.name} url={player.profilePictureUrl} size={40} />
-                        <div>
-                        <strong style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <Link to={`/player/${player.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{player.name}</Link>
-                          {player.compositeRating != null && !isNaN(parseFloat(player.compositeRating)) && (
-                            <span
-                              style={{
-                                fontSize: '12px',
-                                padding: '4px 10px',
-                                borderRadius: '12px',
-                                background: 'var(--color-primary)',
-                                color: 'white',
-                                fontWeight: '700',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                              }}
-                            >
+                    <div className="pb-card-view">
+                      <div className={`pb-card-accent ${accentClass}`} />
+                      <div className="pb-card-avatar">
+                        <PlayerAvatar name={player.name} url={player.profilePictureUrl} size={42} />
+                      </div>
+                      <div className="pb-card-body">
+                        <div className="pb-card-name-row">
+                          <Link to={`/player/${player.id}`} className="pb-card-name">{player.name}</Link>
+                          {hasRating && (
+                            <span className={`pb-card-rating ${getRatingClass(player.compositeRating)}`}>
                               {parseFloat(player.compositeRating).toFixed(2)}
                             </span>
                           )}
-                          {player.isLds && (
-                            <span
-                              style={{
-                                fontSize: '11px',
-                                padding: '3px 8px',
-                                borderRadius: '8px',
-                                background: '#fef3c7',
-                                color: '#92400e',
-                                fontWeight: '600',
-                                border: '1px solid #fbbf24',
-                              }}
-                            >
-                              LDS
-                            </span>
-                          )}
-                          {(player.recruitingStatuses || ['Watching']).map((status) => (
-                            <span key={status} className={`status-badge ${getStatusColor(status)}`}>
-                              {status}
-                            </span>
+                          {player.isJuco && <span className="pb-badge-juco">JUCO</span>}
+                          {player.isTransferWishlist && <span className="pb-badge-transfer">Transfer</span>}
+                          {player.isLds && <span className="pb-badge-lds">LDS</span>}
+                          {player.cutUpCompleted && <span className="pb-badge-cutup">Cut Up ✓</span>}
+                          {player.flagged && <span className="pb-badge-flag" title="Flagged">🚩</span>}
+                          {(player.recruitingStatuses || ['Watching']).map(status => (
+                            <span key={status} className={`status-badge ${getStatusColor(status)}`}>{status}</span>
                           ))}
-                          {player.cutUpCompleted && (
-                            <span style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '4px', background: 'var(--color-success)', color: 'white' }}>
-                              Cut Up Done
-                            </span>
-                          )}
                           {playerAssignments.length > 0 && (
-                            <span className="assigned-scouts" title={`Assigned to: ${playerAssignments.map((a) => a.scout_name || a.scout_email).join(', ')}`}>
-                              <Users size={14} />
-                              {playerAssignments.length}
+                            <span className="assigned-scouts" title={`Assigned to: ${playerAssignments.map(a => a.scout_name || a.scout_email).join(', ')}`}>
+                              <Users size={12} /> {playerAssignments.length}
                             </span>
                           )}
-                        </strong>
-                        {(player.recruitingStatuses || []).includes('Committed Elsewhere') && player.committedSchool ? (
-                          <span className="status-detail">
-                            Committed to {player.committedSchool}
-                            {player.committedDate ? ` on ${String(player.committedDate).split('T')[0]}` : ''}
-                          </span>
-                        ) : null}
-                        <span>
-                          {getPrimaryPositionDisplay(player)}
-                          {player.offensePosition ? ` · O: ${player.offensePosition}` : ''}
-                          {player.defensePosition ? ` · D: ${player.defensePosition}` : ''} ·{' '}
-                          {player.school || 'School TBD'}{player.state ? ` (${player.state})` : ''}{player.homeState || player.home_state ? ` · From: ${player.homeState || player.home_state}` : ''} · {player.gradYear || 'Grad year TBD'}
-                        </span>
-                        <span style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                          {player.currentSchoolLevel ? `Level: ${player.currentSchoolLevel} · ` : ''}
-                          {player.eligibilityYearsLeft != null && player.eligibilityYearsLeft !== ''
-                            ? `Years left: ${player.eligibilityYearsLeft} · `
-                            : ''}
-                          {player.portalStatus ? `Portal: ${player.portalStatus}` : ''}
-                        </span>
+                        </div>
+                        <div className="pb-card-meta">
+                          <strong>{getPrimaryPositionDisplay(player)}</strong>
+                          {player.offensePosition && ` · O: ${player.offensePosition}`}
+                          {player.defensePosition && ` · D: ${player.defensePosition}`}
+                          {' · '}{player.school || 'School TBD'}
+                          {player.state && ` (${player.state})`}
+                          {(player.homeState || player.home_state) && ` · From: ${player.homeState || player.home_state}`}
+                          {' · '}{player.gradYear || 'Grad TBD'}
+                          {player.currentSchoolLevel && ` · ${player.currentSchoolLevel}`}
+                          {player.eligibilityYearsLeft != null && player.eligibilityYearsLeft !== '' && ` · ${player.eligibilityYearsLeft}yr elig`}
+                          {player.portalStatus && ` · ${player.portalStatus}`}
+                        </div>
+                        {(player.recruitingStatuses || []).includes('Committed Elsewhere') && player.committedSchool && (
+                          <div className="pb-card-meta" style={{ color: '#F97316' }}>
+                            Committed to {player.committedSchool}{player.committedDate ? ` · ${String(player.committedDate).split('T')[0]}` : ''}
+                          </div>
+                        )}
                         {(player.immediateImpactTag || player.recruitingContext || player.riskNotes) && (
-                          <span style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                            {player.immediateImpactTag ? `Impact: ${player.immediateImpactTag}. ` : ''}
-                            {player.recruitingContext ? `Context: ${player.recruitingContext}. ` : ''}
-                            {player.riskNotes ? `Risk: ${player.riskNotes}.` : ''}
-                          </span>
+                          <div className="pb-card-intel">
+                            {player.immediateImpactTag && <><span className="pb-intel-tag pb-intel-impact">Impact</span>{player.immediateImpactTag} </>}
+                            {player.recruitingContext && <span style={{ marginLeft: player.immediateImpactTag ? 6 : 0 }}>{player.recruitingContext} </span>}
+                            {player.riskNotes && <><span className="pb-intel-tag pb-intel-risk">Risk</span>{player.riskNotes}</>}
+                          </div>
                         )}
                         {Array.isArray(player.otherOffers) && player.otherOffers.length > 0 && (
-                          <span style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                            Competing schools:{' '}
-                            {player.otherOffers
-                              .map((o) => `${o.school} (${o.interest})`)
-                              .join(', ')}
-                          </span>
+                          <div className="pb-card-competitors">
+                            Competing: {player.otherOffers.map(o => `${o.school} (${o.interest})`).join(', ')}
+                          </div>
                         )}
-                        </div>
                       </div>
-                      <div className="row-actions">
-                        <label
-                          className="btn-ghost"
-                          title="Cut Up Completed"
-                          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-text-secondary)' }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={player.cutUpCompleted || false}
-                            onChange={() => toggleCutUpCompleted(player.id)}
-                            style={{ width: '16px', height: '16px', accentColor: 'var(--color-text-secondary)' }}
-                          />
+                      <div className="pb-card-actions">
+                        <label className="pb-cutup-label">
+                          <input type="checkbox" checked={player.cutUpCompleted || false}
+                            onChange={() => toggleCutUpCompleted(player.id)} />
                           <span>Cut Up</span>
                         </label>
-                        <button className="btn-ghost" onClick={() => startEditing(player)}>
-                          <Pencil size={16} />
-                          Edit
+                        <button className="pb-action-btn" onClick={() => startEditing(player)}>
+                          <Pencil size={12} /> Edit
                         </button>
-                        <Link className="btn-ghost" to={`/player/${player.id}/stats`}>
-                          <BarChart3 size={16} />
-                          Stats
+                        <Link className="pb-action-btn" to={`/player/${player.id}/stats`}>
+                          <BarChart3 size={12} /> Stats
                         </Link>
-                        <button className="btn-ghost danger" onClick={() => removePlayer(player.id)}>
-                          <Trash2 size={16} />
-                          Remove
+                        <button className="pb-action-btn danger" onClick={() => removePlayer(player.id)}>
+                          <Trash2 size={12} /> Remove
                         </button>
                       </div>
                     </div>
@@ -1614,32 +1196,20 @@ function PlayerBoard() {
               )
             })}
           </ul>
+
           {totalPages > 1 && (
-            <div className="pagination">
-              <button
-                className="btn-ghost"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft size={16} />
-                Previous
+            <div className="pb-pagination">
+              <button className="pb-page-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                <ChevronLeft size={14} /> Prev
               </button>
-              <span className="pagination-info">
-                Page {currentPage} of {totalPages} ({filteredPlayers.length} total)
-              </span>
-              <button
-                className="btn-ghost"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Next
-                <ChevronRight size={16} />
+              <span className="pb-page-info">{currentPage} / {totalPages} · {filteredPlayers.length} total</span>
+              <button className="pb-page-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                Next <ChevronRight size={14} />
               </button>
             </div>
           )}
-          </>
-        )}
-      </section>
+        </>
+      )}
     </div>
   )
 }

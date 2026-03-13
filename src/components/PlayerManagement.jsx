@@ -945,7 +945,8 @@ function PlayerManagement() {
         </div>
         <span className={`pb-add-toggle-chevron${showAddForm ? ' open' : ''}`}>▼</span>
         {showAddForm && (
-          <form className="pb-add-form form-grid" onSubmit={handleAddPlayer}>
+          <div className="pb-add-form-panel">
+          <form className="form-grid" onSubmit={handleAddPlayer}>
             <label className="field">
               Name *
               <input name="name" value={form.name} onChange={handleChange} placeholder="Player name" />
@@ -1074,6 +1075,7 @@ function PlayerManagement() {
             </button>
             {undersizedModal.open && undersizedModal.pendingAction === 'add' && renderUndersizedAlert()}
           </form>
+          </div>
         )}
       </div>
 

@@ -788,1018 +788,515 @@ function Analytics() {
   const timeProgress = timeRange > 0 ? ((timeToCommit.avg - timeToCommit.min) / timeRange) * 100 : 50
 
   return (
-    <div className="page analytics-page">
-      {/* Dashboard Header */}
-      <div className="analytics-dashboard-header">
-        <header style={{
-          borderLeft: `4px solid ${BYU_BLUE}`,
-          paddingLeft: '16px',
-          marginBottom: '24px',
-        }}>
-          <h2 style={{ margin: '0 0 4px 0', fontSize: '24px', fontWeight: 700, color: BYU_BLUE }}>
-            Analytics Dashboard
-          </h2>
-          <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
-            Recruiting insights and performance metrics
-          </p>
-        </header>
-        <button
-          className="btn-primary"
-          onClick={handleExportPDF}
-          disabled={isExporting}
-          style={{ whiteSpace: 'nowrap' }}
-        >
-          {isExporting ? 'Exporting...' : 'Export PDF'}
-        </button>
+    <div className="page analytics-page analytics-v2">
+      {/* ── HEADER ──────────────────────────────────────────── */}
+      <div className="av2-header">
+        <div>
+          <span className="av2-eyebrow">BYU Football · Recruiting Intelligence</span>
+          <h1 className="av2-title">Analytics Command</h1>
+        </div>
+        <div className="av2-header-right">
+          {availableClassYears.length > 0 && (
+            <div className="av2-filter-row">
+              <span className="av2-filter-label">Class Year</span>
+              <div className="av2-filter-pills">
+                <button className={`av2-pill${classYearFilter === 'all' ? ' active' : ''}`} onClick={() => setClassYearFilter('all')}>All</button>
+                {availableClassYears.map(year => (
+                  <button key={year} className={`av2-pill${classYearFilter === year ? ' active' : ''}`} onClick={() => setClassYearFilter(year)}>{year}</button>
+                ))}
+              </div>
+            </div>
+          )}
+          <button className="av2-export" onClick={handleExportPDF} disabled={isExporting}>
+            {isExporting ? 'Generating…' : '⬇ Export PDF'}
+          </button>
+        </div>
       </div>
 
-      {/* Class Year Filter */}
-      {availableClassYears.length > 0 && (
-        <div className="analytics-filter-bar">
-          <span className="filter-label">Class Year:</span>
-          <button
-            className={`analytics-filter-pill${classYearFilter === 'all' ? ' active' : ''}`}
-            onClick={() => setClassYearFilter('all')}
-          >
-            All
-          </button>
-          {availableClassYears.map(year => (
-            <button
-              key={year}
-              className={`analytics-filter-pill${classYearFilter === year ? ' active' : ''}`}
-              onClick={() => setClassYearFilter(year)}
+      {/* ── 01 / BIG 12 BENCHMARKING ────────────────────────── */}
+      <div className="av2-sh">
+        <span className="av2-sh-num">01</span>
+        <span className="av2-sh-t">Big 12 Benchmarking</span>
+        <span className="av2-sh-s">Composite trend · position prototypes</span>
+      </div>
+      <div className="av2-panel av2-bench-layout">
+        <div className="av2-bench-chart">
+          <p className="av2-chart-label">BYU Team Avg Composite · 2016–2025</p>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={BYU_TEAM_COMPOSITE_BY_YEAR} margin={{ top: 8, right: 16, left: 0, bottom: 16 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--av2-grid)" />
+              <XAxis dataKey="year" tick={{ fontSize: 11, fill: 'var(--av2-muted)', fontFamily: "'DM Mono', monospace" }} tickLine={false} axisLine={false} />
+              <YAxis domain={[80, 90]} tick={{ fontSize: 11, fill: 'var(--av2-muted)', fontFamily: "'DM Mono', monospace" }} tickLine={false} axisLine={false} />
+              <Tooltip content={<CustomTooltip />} />
+              <ReferenceArea x1={2023} x2={2025} fill={BYU_BLUE} fillOpacity={0.07} />
+              <Line type="monotone" dataKey="avgComposite" name="BYU Avg" stroke="#3B82F6" strokeWidth={2.5} dot={{ r: 3, fill: '#3B82F6' }} />
+            </LineChart>
+          </ResponsiveContainer>
+          <p className="av2-chart-note">Shaded region = Big 12 era (2023+)</p>
+        </div>
+        <div className="av2-bench-proto">
+          <div className="av2-bench-proto-head">
+            <p className="av2-chart-label" style={{ margin: 0 }}>Position Prototype</p>
+            <select
+              value={benchmarkPosition}
+              onChange={(e) => setBenchmarkPosition(e.target.value)}
+              className="av2-select"
             >
-              {year}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Big 12 Benchmarking */}
-      <section className="panel" style={{
-        padding: '24px',
-        marginBottom: '24px',
-        borderRadius: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-      }}>
-        <div style={{ marginBottom: '16px' }}>
-          <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 600, color: BYU_BLUE }}>
-            Big 12 Benchmarking
-          </h3>
-          <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
-            BYU recruiting profile trend + Big 12/NFL prototypes by position
-          </p>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '24px' }}>
-          {/* Trend line */}
-          <div>
-            <div style={{ marginBottom: '8px', fontSize: '13px', color: '#6b7280' }}>
-              BYU Team Avg Composite Rating (2016–2025)
-            </div>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={BYU_TEAM_COMPOSITE_BY_YEAR} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
-                <XAxis dataKey="year" tick={{ fontSize: 11, fill: '#6b7280' }} />
-                <YAxis
-                  domain={[80, 90]}
-                  tick={{ fontSize: 11, fill: '#6b7280' }}
-                  label={{ value: 'Composite', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#6b7280', fontSize: 12 } }}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                {/* Shade Big 12 era */}
-                <ReferenceArea x1={2023} x2={2025} fill={BYU_BLUE_TINT} fillOpacity={0.7} />
-                <Line type="monotone" dataKey="avgComposite" name="BYU Avg Composite" stroke="#4169E1" strokeWidth={3} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-            <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280' }}>
-              Shaded region shows Big 12 era (2023+).
-            </div>
+              {['QB','RB','WR (slot)','WR (wideout)','TE','OT','OG','DE','DT','LB','CB','S'].map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
           </div>
-
-          {/* Archetype cards */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
-              <div style={{ fontSize: '13px', color: '#6b7280' }}>Position prototypes</div>
-              <select
-                value={benchmarkPosition}
-                onChange={(e) => setBenchmarkPosition(e.target.value)}
-                style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-card)' }}
-              >
-                {[
-                  'QB',
-                  'RB',
-                  'WR (slot)',
-                  'WR (wideout)',
-                  'TE',
-                  'OT',
-                  'OG',
-                  'DE',
-                  'DT',
-                  'LB',
-                  'CB',
-                  'S',
-                ].map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </div>
-
-            {(() => {
-              const normPos = normalizeBenchmarkPosition(benchmarkPosition) || benchmarkPosition
-              const big12 = BIG12_STARTER_AVG_BY_POSITION[normPos]
-              const nfl = BYU_NFL_AVG_BY_POSITION[normPos] || null
-              return (
-                <div style={{ display: 'grid', gap: '12px' }}>
-                  <div style={{ padding: '14px', borderRadius: '12px', border: '1px solid var(--color-border)', background: 'var(--color-bg-secondary)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <strong style={{ color: BYU_BLUE }}>Big 12 {normPos} Prototype</strong>
-                      <span style={{ fontSize: '12px', color: '#6b7280' }}>Avg starter (2025)</span>
+          {(() => {
+            const normPos = normalizeBenchmarkPosition(benchmarkPosition) || benchmarkPosition
+            const big12 = BIG12_STARTER_AVG_BY_POSITION[normPos]
+            const nfl = BYU_NFL_AVG_BY_POSITION[normPos]
+            const fmtIn = (v) => typeof v === 'number' ? `${Math.floor(v / 12)}'${(v % 12).toFixed(1)}"` : '—'
+            return (
+              <div className="av2-proto-cards">
+                <div className="av2-proto-card av2-proto-big12">
+                  <div className="av2-proto-badge">Big 12 Starter · 2025</div>
+                  <div className="av2-proto-pos">{normPos}</div>
+                  <div className="av2-proto-stats">
+                    <div className="av2-proto-stat">
+                      <span className="av2-proto-stat-v">{fmtIn(big12?.height_in)}</span>
+                      <span className="av2-proto-stat-l">Height</span>
                     </div>
-                    <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
-                      <div><span style={{ color: '#6b7280' }}>Height</span><div style={{ fontWeight: 700 }}>{big12?.height_in ?? '—'} in</div></div>
-                      <div><span style={{ color: '#6b7280' }}>Weight</span><div style={{ fontWeight: 700 }}>{big12?.weight_lb ?? '—'} lb</div></div>
-                      <div style={{ gridColumn: '1 / -1', color: '#6b7280', fontSize: '12px' }}>
-                        Composite rating not available for Big 12 starters in this dataset.
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ padding: '14px', borderRadius: '12px', border: '1px solid var(--color-border)', background: 'var(--color-bg-secondary)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <strong style={{ color: BYU_BLUE }}>NFL {normPos} Prototype</strong>
-                      <span style={{ fontSize: '12px', color: '#6b7280' }}>BYU NFL averages</span>
-                    </div>
-                    <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
-                      <div><span style={{ color: '#6b7280' }}>Composite</span><div style={{ fontWeight: 700 }}>{nfl?.composite != null ? (nfl.composite * 100).toFixed(2) : '—'}</div></div>
-                      <div><span style={{ color: '#6b7280' }}>40</span><div style={{ fontWeight: 700 }}>{typeof nfl?.forty === 'number' ? nfl.forty.toFixed(2) : '—'}</div></div>
-                      <div><span style={{ color: '#6b7280' }}>Height</span><div style={{ fontWeight: 700 }}>{typeof nfl?.height_in === 'number' ? nfl.height_in.toFixed(1) : '—'} in</div></div>
-                      <div><span style={{ color: '#6b7280' }}>Weight</span><div style={{ fontWeight: 700 }}>{typeof nfl?.weight_lb === 'number' ? nfl.weight_lb.toFixed(0) : '—'} lb</div></div>
-                      <div><span style={{ color: '#6b7280' }}>Arm</span><div style={{ fontWeight: 700 }}>{typeof nfl?.arm === 'number' ? nfl.arm.toFixed(2) : '—'} in</div></div>
-                      <div><span style={{ color: '#6b7280' }}>Hand</span><div style={{ fontWeight: 700 }}>{typeof nfl?.hand === 'number' ? nfl.hand.toFixed(2) : '—'} in</div></div>
+                    <div className="av2-proto-stat">
+                      <span className="av2-proto-stat-v">{big12?.weight_lb ?? '—'} lb</span>
+                      <span className="av2-proto-stat-l">Weight</span>
                     </div>
                   </div>
                 </div>
-              )
-            })()}
-          </div>
+                <div className="av2-proto-card av2-proto-nfl">
+                  <div className="av2-proto-badge">BYU NFL Avg</div>
+                  <div className="av2-proto-pos">{normPos}</div>
+                  <div className="av2-proto-stats av2-proto-stats-grid">
+                    <div className="av2-proto-stat">
+                      <span className="av2-proto-stat-v">{nfl?.composite != null ? (nfl.composite * 100).toFixed(1) : '—'}</span>
+                      <span className="av2-proto-stat-l">Composite</span>
+                    </div>
+                    <div className="av2-proto-stat">
+                      <span className="av2-proto-stat-v">{typeof nfl?.forty === 'number' ? nfl.forty.toFixed(2) : '—'}s</span>
+                      <span className="av2-proto-stat-l">40-yard</span>
+                    </div>
+                    <div className="av2-proto-stat">
+                      <span className="av2-proto-stat-v">{fmtIn(nfl?.height_in)}</span>
+                      <span className="av2-proto-stat-l">Height</span>
+                    </div>
+                    <div className="av2-proto-stat">
+                      <span className="av2-proto-stat-v">{typeof nfl?.weight_lb === 'number' ? nfl.weight_lb.toFixed(0) : '—'} lb</span>
+                      <span className="av2-proto-stat-l">Weight</span>
+                    </div>
+                    <div className="av2-proto-stat">
+                      <span className="av2-proto-stat-v">{typeof nfl?.arm === 'number' ? nfl.arm.toFixed(1) : '—'}"</span>
+                      <span className="av2-proto-stat-l">Arm</span>
+                    </div>
+                    <div className="av2-proto-stat">
+                      <span className="av2-proto-stat-v">{typeof nfl?.hand === 'number' ? nfl.hand.toFixed(1) : '—'}"</span>
+                      <span className="av2-proto-stat-l">Hand</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
         </div>
-      </section>
+      </div>
 
-      {/* KPI Summary Row */}
-      <div className="analytics-kpi-grid">
+      {/* ── KPI ROW ─────────────────────────────────────────── */}
+      <div className="av2-kpi-row">
         {[
-          { label: 'Total Recruits', value: kpiStats.totalRecruits, color: BYU_BLUE },
+          { label: 'Total Recruits', value: kpiStats.totalRecruits, color: '#3B82F6' },
           { label: 'Committed', value: kpiStats.committed, color: '#16a34a' },
-          { label: 'Offered', value: kpiStats.offered, color: BYU_BLUE_LIGHT },
-          { label: 'Commit Rate', value: `${kpiStats.commitRate}%`, color: kpiStats.commitRate >= 50 ? '#16a34a' : '#f59e0b' },
-        ].map((kpi) => (
-          <div key={kpi.label} className="panel" style={{
-            padding: '20px',
-            borderLeft: `4px solid ${kpi.color}`,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-          }}>
-            <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>{kpi.label}</span>
-            <span style={{ fontSize: '28px', fontWeight: 700, color: kpi.color }}>{kpi.value}</span>
+          { label: 'Offered', value: kpiStats.offered, color: '#6366F1' },
+          { label: 'Commit Rate', value: `${kpiStats.commitRate}%`, color: kpiStats.commitRate >= 50 ? '#16a34a' : '#F59E0B' },
+        ].map((k, i) => (
+          <div key={k.label} className="av2-kpi" style={{ '--kc': k.color, animationDelay: `${i * 60}ms` }}>
+            <span className="av2-kpi-n">{k.value}</span>
+            <span className="av2-kpi-l">{k.label}</span>
+            <div className="av2-kpi-line" />
           </div>
         ))}
       </div>
 
-      {/* Breakout Players */}
-      {filteredBreakoutPlayers.length > 0 && (
-        <section className="panel" style={{
-          padding: '24px',
-          marginBottom: '24px',
-          borderRadius: '12px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-        }}>
-          <div style={{ marginBottom: '16px' }}>
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 600, color: BYU_BLUE }}>
-              Breakout Players
-            </h3>
-            <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
-              Players whose latest game significantly exceeded their season average
-              {isBreakoutDemo && <span style={{ marginLeft: '8px', fontStyle: 'italic', color: '#f59e0b' }}>(Sample Data)</span>}
-            </p>
-          </div>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: '16px',
-          }}>
-            {filteredBreakoutPlayers.map((bp) => (
-              <div key={bp.player.id} style={{
-                padding: '16px',
-                background: 'var(--color-bg-secondary)',
-                borderRadius: '12px',
-                border: '1px solid var(--color-border)',
-                position: 'relative',
-                overflow: 'hidden',
-              }}>
-                {/* Breakout score badge */}
-                <div style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  background: bp.breakoutScore >= 2.5 ? '#16a34a' : '#f59e0b',
-                  color: 'white',
-                  borderRadius: '8px',
-                  padding: '4px 10px',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                }}>
-                  {bp.breakoutScore.toFixed(1)}x
-                </div>
-
-                {/* Player info */}
-                <div style={{ marginBottom: '10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                    <Link to={`/player/${bp.player.id}/stats`} className="analytics-player-link" style={{ fontSize: '15px', fontWeight: 600 }}>{bp.player.name}</Link>
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      color: 'white',
-                      background: BYU_BLUE,
-                      padding: '1px 8px',
-                      borderRadius: '4px',
-                    }}>
-                      {bp.player.position}
-                    </span>
-                    {bp.grade && (
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        color: BYU_BLUE,
-                        background: BYU_BLUE_TINT,
-                        padding: '1px 8px',
-                        borderRadius: '4px',
-                        border: `1px solid ${BYU_BLUE}`,
-                      }}>
-                        {bp.grade}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                    {bp.player.school} &middot; vs. {bp.game.opponent} &middot; {new Date(bp.game.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </div>
-                </div>
-
-                {/* Key stat comparisons */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {bp.keyStats.map((stat) => (
-                    <div key={stat.statType} style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      fontSize: '13px',
-                      padding: '4px 8px',
-                      background: 'var(--color-bg-primary, #f9fafb)',
-                      borderRadius: '6px',
-                    }}>
-                      <span style={{ color: '#6b7280', fontWeight: 500 }}>{stat.statType}</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontWeight: 700, color: '#16a34a' }}>
-                          {stat.gameValue}{stat.unit ? ` ${stat.unit}` : ''}
-                        </span>
-                        <span style={{ color: '#16a34a', fontSize: '11px' }}>&#9650;</span>
-                        <span style={{ fontSize: '12px', color: '#6b7280' }}>
-                          (avg {stat.seasonAvg}{stat.unit ? ` ${stat.unit}` : ''})
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Board Summary + Time-to-Commit side by side */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '24px',
-        marginBottom: '24px',
-      }}>
-        {/* Recruiting Board Summary */}
-        <section className="panel" style={{
-          padding: '24px',
-          borderRadius: '12px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-        }}>
-          <div style={{ marginBottom: '12px' }}>
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600, color: BYU_BLUE }}>
-              Recruiting Board Summary
-            </h3>
-            <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
-              Recruit count by status &middot; {filteredRecruits.length} total
-            </p>
-          </div>
+      {/* ── 02 / RECRUITING BOARD ───────────────────────────── */}
+      <div className="av2-sh">
+        <span className="av2-sh-num">02</span>
+        <span className="av2-sh-t">Recruiting Board</span>
+        <span className="av2-sh-s">Status breakdown · {filteredRecruits.length} total recruits</span>
+      </div>
+      <div className="av2-two-col">
+        <div className="av2-panel">
+          <p className="av2-chart-label">Status Breakdown</p>
           {boardSummary.length === 0 ? (
-            <p className="empty-state" style={{ padding: '40px', textAlign: 'center' }}>
-              No recruits on the board yet
-            </p>
+            <p className="av2-empty">No recruits on the board yet</p>
           ) : (
             <>
-              <ResponsiveContainer width="100%" height={boardSummary.length * 40 + 20}>
-                <BarChart data={boardSummary} layout="vertical" margin={{ top: 5, right: 30, left: 5, bottom: 5 }} barCategoryGap="25%">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.4} horizontal={false} />
-                  <YAxis
-                    dataKey="status"
-                    type="category"
-                    tick={{ fontSize: 11, fill: '#6b7280' }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={120}
-                  />
-                  <XAxis
-                    type="number"
-                    allowDecimals={false}
-                    tick={{ fontSize: 10, fill: '#6b7280' }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
+              <ResponsiveContainer width="100%" height={boardSummary.length * 42 + 16}>
+                <BarChart data={boardSummary} layout="vertical" margin={{ top: 4, right: 24, left: 4, bottom: 4 }} barCategoryGap="28%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--av2-grid)" horizontal={false} />
+                  <YAxis dataKey="status" type="category" tick={{ fontSize: 11, fill: 'var(--av2-muted)', fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, letterSpacing: '0.03em' }} tickLine={false} axisLine={false} width={128} />
+                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--av2-muted)' }} tickLine={false} axisLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="count" name="Recruits" radius={[0, 6, 6, 0]} maxBarSize={28}>
-                    {boardSummary.map((entry) => (
-                      <Cell
-                        key={entry.status}
-                        cursor="pointer"
-                        fill={selectedBoardStatus === entry.status ? BYU_BLUE_LIGHT : '#4169E1'}
-                        onClick={() =>
-                          setSelectedBoardStatus(
-                            selectedBoardStatus === entry.status ? null : entry.status
-                          )
-                        }
+                  <Bar dataKey="count" name="Recruits" radius={[0, 4, 4, 0]} maxBarSize={24}>
+                    {boardSummary.map((e) => (
+                      <Cell key={e.status} cursor="pointer"
+                        fill={selectedBoardStatus === e.status ? BYU_BLUE_LIGHT : getStatusColor(e.status)}
+                        onClick={() => setSelectedBoardStatus(selectedBoardStatus === e.status ? null : e.status)}
                       />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
               {selectedBoardStatus && (
-                <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280' }}>
-                  Focus: {selectedBoardStatus} &middot;{' '}
-                  {boardSummary.find((b) => b.status === selectedBoardStatus)?.count ?? 0} recruits
-                </div>
+                <p style={{ marginTop: 8, fontSize: 11, color: 'var(--av2-muted)' }}>
+                  Focus: {selectedBoardStatus} · {boardSummary.find(b => b.status === selectedBoardStatus)?.count ?? 0} recruits
+                </p>
               )}
             </>
           )}
-        </section>
+        </div>
 
-        {/* Time-to-Commit - Professional KPI Card */}
-        <section className="panel" style={{
-          padding: '24px',
-          borderRadius: '12px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-          background: `linear-gradient(135deg, ${BYU_BLUE_TINT} 0%, white 100%)`,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-        }}>
-          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600, color: BYU_BLUE }}>
-              Time to Commit
-            </h3>
-            <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
-              Avg. days from offer to commitment
-              {isTimeDemo && <span style={{ marginLeft: '8px', fontStyle: 'italic', color: '#f59e0b' }}>(Sample Data)</span>}
-            </p>
+        <div className="av2-panel av2-ttc-panel">
+          <p className="av2-chart-label">Time to Commit{isTimeDemo && <span className="av2-demo-badge">DEMO</span>}</p>
+          <p style={{ fontSize: 11, color: 'var(--av2-muted)', margin: '0 0 4px' }}>Avg days from offer to commitment</p>
+          <div className="av2-ttc-hero">
+            <span className="av2-ttc-num">{timeToCommit.avg}</span>
+            <span className="av2-ttc-unit">days</span>
           </div>
-
-          {/* Hero number */}
-          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-            <span style={{ fontSize: '48px', fontWeight: 700, color: BYU_BLUE, lineHeight: 1 }}>
-              {timeToCommit.avg}
-            </span>
-            <span style={{ fontSize: '18px', fontWeight: 400, color: '#6b7280', marginLeft: '6px' }}>
-              days
-            </span>
-          </div>
-
-          {/* Progress bar */}
-          <div style={{ margin: '0 auto 20px auto', width: '100%', maxWidth: '320px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#6b7280', marginBottom: '5px' }}>
-              <span>{timeToCommit.min}d (fastest)</span>
-              <span>{timeToCommit.max}d (slowest)</span>
+          <div className="av2-ttc-bar-wrap">
+            <div className="av2-ttc-bar-labels">
+              <span>{timeToCommit.min}d fastest</span>
+              <span>{timeToCommit.max}d slowest</span>
             </div>
-            <div style={{
-              height: '6px',
-              background: '#e5e7eb',
-              borderRadius: '3px',
-              position: 'relative',
-            }}>
-              <div style={{
-                height: '100%',
-                width: `${timeProgress}%`,
-                background: `linear-gradient(90deg, #16a34a, ${BYU_BLUE_LIGHT}, #dc2626)`,
-                borderRadius: '3px',
-              }} />
-              <div style={{
-                position: 'absolute',
-                top: '-4px',
-                left: `${timeProgress}%`,
-                transform: 'translateX(-50%)',
-                width: '14px',
-                height: '14px',
-                background: BYU_BLUE,
-                borderRadius: '50%',
-                border: '2px solid white',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-              }} />
+            <div className="av2-ttc-track">
+              <div className="av2-ttc-fill" style={{ width: `${timeProgress}%` }} />
+              <div className="av2-ttc-dot" style={{ left: `${timeProgress}%` }} />
             </div>
           </div>
-
-          {/* Sub-metrics */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr 1fr',
-            maxWidth: '320px',
-            margin: '0 auto',
-          }}>
-            <div style={{ textAlign: 'center', padding: '10px 8px', borderRight: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px', fontWeight: 500 }}>Fastest</div>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: '#16a34a' }}>{timeToCommit.min}</div>
-              <div style={{ fontSize: '10px', color: '#6b7280' }}>days</div>
+          <div className="av2-ttc-stats">
+            <div className="av2-ttc-stat">
+              <span className="av2-ttc-stat-v" style={{ color: '#22C55E' }}>{timeToCommit.min}</span>
+              <span className="av2-ttc-stat-l">Fastest</span>
             </div>
-            <div style={{ textAlign: 'center', padding: '10px 8px', borderRight: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px', fontWeight: 500 }}>Median</div>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: BYU_BLUE }}>{timeToCommit.median}</div>
-              <div style={{ fontSize: '10px', color: '#6b7280' }}>days</div>
+            <div className="av2-ttc-stat av2-ttc-stat-mid">
+              <span className="av2-ttc-stat-v" style={{ color: '#002E5D' }}>{timeToCommit.median}</span>
+              <span className="av2-ttc-stat-l">Median</span>
             </div>
-            <div style={{ textAlign: 'center', padding: '10px 8px' }}>
-              <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px', fontWeight: 500 }}>Slowest</div>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: '#dc2626' }}>{timeToCommit.max}</div>
-              <div style={{ fontSize: '10px', color: '#6b7280' }}>days</div>
+            <div className="av2-ttc-stat">
+              <span className="av2-ttc-stat-v" style={{ color: '#EF4444' }}>{timeToCommit.max}</span>
+              <span className="av2-ttc-stat-l">Slowest</span>
             </div>
           </div>
-
-          <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '11px', color: '#6b7280' }}>
+          <p style={{ fontSize: 11, color: 'var(--av2-muted)', marginTop: 6 }}>
             Based on {timeToCommit.count} player{timeToCommit.count !== 1 ? 's' : ''}
-            {isTimeDemo && ' (sample)'}
-          </div>
-        </section>
+          </p>
+        </div>
       </div>
 
-      {/* Two-Column: Composite Rating + Commit-to-Offer Donut */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '24px',
-        marginBottom: '24px',
-      }}>
-        {/* Composite Rating by Position */}
-        <section className="panel" style={{
-          padding: '24px',
-          borderRadius: '12px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-        }}>
-          <div style={{ marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-              <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600, color: BYU_BLUE }}>
-                Composite Rating by Position
-              </h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                <span style={{ fontSize: '12px', color: '#6b7280' }}>Goal:</span>
-                {editingCompositeGoal ? (
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    autoFocus
-                    value={editingCompositeValue}
-                    onChange={(e) => setEditingCompositeValue(e.target.value)}
-                    onBlur={() => {
-                      const num = parseFloat(editingCompositeValue)
-                      const newGoals = { ...positionGoals, compositeRatingGoal: isNaN(num) ? COMPOSITE_GOAL_DEFAULT : num }
-                      setPositionGoals(newGoals)
-                      setEditingCompositeGoal(false)
-                      recruitingGoalsApi.save(newGoals).catch(console.error)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') e.target.blur()
-                      if (e.key === 'Escape') setEditingCompositeGoal(false)
-                    }}
-                    style={{ width: '64px', fontSize: '13px', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--color-border)' }}
-                  />
-                ) : (
-                  <span
-                    onClick={() => {
-                      setEditingCompositeGoal(true)
-                      setEditingCompositeValue(String(positionGoals.compositeRatingGoal ?? COMPOSITE_GOAL_DEFAULT))
-                    }}
-                    title="Click to edit composite rating goal"
-                    style={{ fontWeight: 600, fontSize: '13px', color: '#dc2626', cursor: 'pointer', borderBottom: '1px dashed #dc2626' }}
-                  >
-                    {positionGoals.compositeRatingGoal ?? COMPOSITE_GOAL_DEFAULT}+
-                  </span>
-                )}
-              </div>
-            </div>
-            <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
-              Avg. committed player ratings
-              {isRatingDemo && <span style={{ marginLeft: '8px', fontStyle: 'italic', color: '#f59e0b' }}>(Sample Data)</span>}
-            </p>
+      {/* ── 03 / COMPOSITE RATINGS ──────────────────────────── */}
+      <div className="av2-sh" style={{ marginTop: 28 }}>
+        <span className="av2-sh-num">03</span>
+        <span className="av2-sh-t">Composite Rating by Position</span>
+        <div className="av2-sh-right">
+          {isRatingDemo && <span className="av2-demo-badge">DEMO</span>}
+          <div className="av2-goal-edit">
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--av2-muted)' }}>Goal Line</span>
+            {editingCompositeGoal ? (
+              <input type="number" step="0.01" min="0" max="100" autoFocus className="av2-goal-input"
+                value={editingCompositeValue}
+                onChange={e => setEditingCompositeValue(e.target.value)}
+                onBlur={() => {
+                  const num = parseFloat(editingCompositeValue)
+                  const ng = { ...positionGoals, compositeRatingGoal: isNaN(num) ? COMPOSITE_GOAL_DEFAULT : num }
+                  setPositionGoals(ng); setEditingCompositeGoal(false)
+                  recruitingGoalsApi.save(ng).catch(console.error)
+                }}
+                onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingCompositeGoal(false) }}
+              />
+            ) : (
+              <span className="av2-goal-val"
+                onClick={() => { setEditingCompositeGoal(true); setEditingCompositeValue(String(positionGoals.compositeRatingGoal ?? COMPOSITE_GOAL_DEFAULT)) }}
+                title="Click to edit goal">
+                {positionGoals.compositeRatingGoal ?? COMPOSITE_GOAL_DEFAULT}+
+              </span>
+            )}
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={committedRatingByPosition} margin={{ top: 10, right: 20, left: 10, bottom: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
-              <XAxis
-                dataKey="position"
-                tick={{ fontSize: 11, fill: '#6b7280' }}
-                angle={-45}
-                textAnchor="end"
-                height={50}
-              />
-              <YAxis
-                domain={[75, 100]}
-                tick={{ fontSize: 11, fill: '#6b7280' }}
-                label={{ value: 'Rating', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#6b7280', fontSize: 12 } }}
-              />
+        </div>
+      </div>
+      <div className="av2-two-col">
+        <div className="av2-panel" style={{ gridColumn: '1 / -1' }}>
+          <ResponsiveContainer width="100%" height={290}>
+            <BarChart data={committedRatingByPosition} margin={{ top: 10, right: 16, left: 8, bottom: 48 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--av2-grid)" vertical={false} />
+              <XAxis dataKey="position" tick={{ fontSize: 11, fill: 'var(--av2-muted)', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 600 }} angle={-40} textAnchor="end" height={56} tickLine={false} axisLine={false} />
+              <YAxis domain={[75, 100]} tick={{ fontSize: 11, fill: 'var(--av2-muted)', fontFamily: "'DM Mono',monospace" }} tickLine={false} axisLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <ReferenceLine
-                y={positionGoals.compositeRatingGoal ?? COMPOSITE_GOAL_DEFAULT}
-                stroke="#dc2626"
-                strokeDasharray="6 4"
-              />
-              <Bar dataKey="avgRating" name="Avg Rating" radius={[6, 6, 0, 0]}>
-                {committedRatingByPosition.map((row) => (
-                  <Cell
-                    key={row.position}
-                    cursor="pointer"
-                    fill={selectedCompositePosition === row.position ? BYU_BLUE_LIGHT : '#4169E1'}
-                    onClick={() =>
-                      setSelectedCompositePosition(
-                        selectedCompositePosition === row.position ? null : row.position
-                      )
-                    }
+              <ReferenceLine y={positionGoals.compositeRatingGoal ?? COMPOSITE_GOAL_DEFAULT} stroke="#EF4444" strokeDasharray="6 3" strokeWidth={1.5} />
+              <Bar dataKey="avgRating" name="Avg Rating" radius={[4, 4, 0, 0]}>
+                {committedRatingByPosition.map(row => (
+                  <Cell key={row.position} cursor="pointer"
+                    fill={selectedCompositePosition === row.position ? BYU_BLUE : '#3B82F6'}
+                    onClick={() => setSelectedCompositePosition(selectedCompositePosition === row.position ? null : row.position)}
                   />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-          <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
-            {committedRatingByPosition.reduce((sum, p) => sum + p.count, 0)} committed players
-            {isRatingDemo && ' (sample)'}
-          </div>
-          {selectedCompositePosition && (
-            <div style={{ marginTop: '4px', fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
-              Focus: {selectedCompositePosition} &middot;{' '}
-              {
-                committedRatingByPosition.find((p) => p.position === selectedCompositePosition)
-                  ?.avgRating
-              }{' '}
-              avg rating
-            </div>
-          )}
-        </section>
-
-        {/* Commit-to-Offer Rate - Donut Chart */}
-        <section className="panel" style={{
-          padding: '24px',
-          borderRadius: '12px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}>
-          <div style={{ alignSelf: 'stretch', marginBottom: '12px' }}>
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600, color: BYU_BLUE }}>
-              Commit-to-Offer Rate
-            </h3>
-            <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
-              Percentage of offered players who committed
-              {isOfferDemo && <span style={{ marginLeft: '8px', fontStyle: 'italic', color: '#f59e0b' }}>(Sample Data)</span>}
-            </p>
-          </div>
-          <div style={{ position: 'relative', width: '220px', height: '220px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={commitPieData}
-                  innerRadius={65}
-                  outerRadius={95}
-                  dataKey="value"
-                  startAngle={90}
-                  endAngle={-270}
-                  stroke="none"
-                >
-                  <Cell fill="#4169E1" />
-                  <Cell fill="#e2e8f0" />
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
-            {/* Center percentage overlay */}
-            <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              textAlign: 'center',
-            }}>
-              <div style={{ fontSize: '32px', fontWeight: 700, color: '#4169E1', lineHeight: 1 }}>
-                {commitToOffer.rate}%
-              </div>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                Commit Rate
-              </div>
-            </div>
-          </div>
-          {/* Legend */}
-          <div style={{
-            display: 'flex',
-            gap: '24px',
-            marginTop: '16px',
-            fontSize: '13px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#4169E1' }} />
-              <span>Committed ({commitToOffer.committed})</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#e2e8f0' }} />
-              <span>Pending ({commitToOffer.pending})</span>
-            </div>
-          </div>
-          <div style={{ marginTop: '12px', fontSize: '12px', color: '#6b7280' }}>
-            {commitToOffer.offered} total offered{isOfferDemo && ' (sample)'}
-          </div>
-        </section>
-      </div>
-
-      {/* Offer-to-Commit Rate by Rating Tier + Schools Taking Our Offers (side by side) */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '24px',
-        marginBottom: '24px',
-      }}>
-      <section className="panel" style={{
-        padding: '24px',
-        borderRadius: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-      }}>
-        <div style={{ marginBottom: '12px' }}>
-          <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600, color: BYU_BLUE }}>
-            Offer-to-Commit Rate by Rating Tier
-          </h3>
-          <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
-            % of offered players who committed, by composite rating bucket
-            {isTierDemo && <span style={{ marginLeft: '8px', fontStyle: 'italic', color: '#f59e0b' }}>(Sample Data)</span>}
+          <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--av2-muted)', marginTop: 4 }}>
+            {committedRatingByPosition.reduce((s, p) => s + p.count, 0)} committed players
+            {selectedCompositePosition && ` · Focus: ${selectedCompositePosition} — ${committedRatingByPosition.find(p => p.position === selectedCompositePosition)?.avgRating} avg`}
           </p>
         </div>
-        {offerToCommitByTier.length === 0 ? (
-          <p className="empty-state" style={{ padding: '40px', textAlign: 'center' }}>
-            No offered players with composite ratings yet
-          </p>
-        ) : (
-          <>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart
-                data={offerToCommitByTier}
-                margin={{ top: 10, right: 20, left: 10, bottom: 40 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
-                <XAxis
-                  dataKey="tier"
-                  tick={{ fontSize: 11, fill: '#6b7280' }}
-                  label={{ value: 'Composite Rating', position: 'insideBottom', offset: -8, style: { fill: '#6b7280', fontSize: 12 } }}
-                />
-                <YAxis
-                  domain={[0, 100]}
-                  tick={{ fontSize: 11, fill: '#6b7280' }}
-                  tickFormatter={(v) => `${v}%`}
-                  label={{
-                    value: 'Offer-to-Commit Rate',
-                    angle: -90,
-                    position: 'insideLeft',
-                    style: { textAnchor: 'middle', fill: '#6b7280', fontSize: 12 },
-                  }}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
+      </div>
+
+      {/* ── 04 / COMMIT ANALYTICS ───────────────────────────── */}
+      <div className="av2-sh" style={{ marginTop: 28 }}>
+        <span className="av2-sh-num">04</span>
+        <span className="av2-sh-t">Commitment Analytics</span>
+        <span className="av2-sh-s">Commit rate · offer-to-commit by rating tier</span>
+      </div>
+      <div className="av2-two-col">
+        <div className="av2-panel av2-donut-panel">
+          <p className="av2-chart-label" style={{ alignSelf: 'stretch' }}>Commit-to-Offer Rate{isOfferDemo && <span className="av2-demo-badge">DEMO</span>}</p>
+          <p style={{ fontSize: 11, color: 'var(--av2-muted)', margin: '0 0 4px', alignSelf: 'stretch' }}>% of offered players who committed</p>
+          <div className="av2-donut-wrap">
+            <div style={{ position: 'relative', width: 200, height: 200 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={commitPieData} innerRadius={62} outerRadius={88} dataKey="value" startAngle={90} endAngle={-270} stroke="none">
+                    <Cell fill="#3B82F6" />
+                    <Cell fill="var(--av2-grid)" />
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 28, fontWeight: 500, color: '#3B82F6', lineHeight: 1 }}>{commitToOffer.rate}%</div>
+                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--av2-muted)', marginTop: 4 }}>Commit Rate</div>
+              </div>
+            </div>
+          </div>
+          <div className="av2-donut-legend">
+            <div className="av2-legend-item"><div className="av2-legend-dot" style={{ background: '#3B82F6' }} /><span>Committed</span><strong style={{ marginLeft: 4 }}>{commitToOffer.committed}</strong></div>
+            <div className="av2-legend-item"><div className="av2-legend-dot" style={{ background: 'var(--av2-grid)', border: '1px solid var(--color-border)' }} /><span>Pending</span><strong style={{ marginLeft: 4 }}>{commitToOffer.pending}</strong></div>
+          </div>
+          <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--av2-muted)', marginTop: 8 }}>{commitToOffer.offered} total offered</p>
+        </div>
+
+        <div className="av2-panel">
+          <p className="av2-chart-label">Offer → Commit Rate by Rating Tier{isTierDemo && <span className="av2-demo-badge">DEMO</span>}</p>
+          {offerToCommitByTier.length === 0 ? (
+            <p className="av2-empty">No offered players with composite ratings yet</p>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={offerToCommitByTier} margin={{ top: 8, right: 16, left: 8, bottom: 40 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--av2-grid)" vertical={false} />
+                  <XAxis dataKey="tier" tick={{ fontSize: 11, fill: 'var(--av2-muted)', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 600 }}
+                    label={{ value: 'Composite Rating', position: 'insideBottom', offset: -8, style: { fill: 'var(--av2-muted)', fontSize: 11 } }}
+                    tickLine={false} axisLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'var(--av2-muted)', fontFamily: "'DM Mono',monospace" }} tickFormatter={v => `${v}%`} tickLine={false} axisLine={false} />
+                  <Tooltip content={({ active, payload }) => {
                     if (!active || !payload?.length) return null
                     const row = payload[0]?.payload
                     if (!row) return null
                     return (
-                      <div style={{
-                        background: 'var(--color-bg-card)',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: '8px',
-                        padding: '12px 16px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                        minWidth: '140px',
-                      }}>
-                        <p style={{ margin: '0 0 6px 0', fontWeight: 700, fontSize: '14px', color: 'var(--color-text)' }}>{row.tier}</p>
-                        <p style={{ margin: '2px 0', fontSize: '13px', color: 'var(--color-text-secondary)' }}>Offered: <strong>{row.offered}</strong></p>
-                        <p style={{ margin: '2px 0', fontSize: '13px', color: 'var(--color-text-secondary)' }}>Committed: <strong>{row.committed}</strong></p>
-                        <p style={{ margin: '2px 0', fontSize: '13px', color: 'var(--color-text-secondary)' }}>Rate: <strong>{row.rate}%</strong></p>
+                      <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '10px 14px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                        <p style={{ margin: '0 0 4px', fontWeight: 700, fontSize: 13 }}>{row.tier}</p>
+                        <p style={{ margin: '2px 0', fontSize: 12 }}>Offered: <strong>{row.offered}</strong></p>
+                        <p style={{ margin: '2px 0', fontSize: 12 }}>Committed: <strong>{row.committed}</strong></p>
+                        <p style={{ margin: '2px 0', fontSize: 12 }}>Rate: <strong>{row.rate}%</strong></p>
                       </div>
                     )
-                  }}
-                />
-                <Bar dataKey="rate" name="Rate (%)" radius={[6, 6, 0, 0]}>
-                  {offerToCommitByTier.map((row) => (
-                    <Cell
-                      key={row.tier}
-                      cursor="pointer"
-                      fill={selectedRatingTier === row.tier ? BYU_BLUE_LIGHT : '#4169E1'}
-                      onClick={() =>
-                        setSelectedRatingTier(
-                          selectedRatingTier === row.tier ? null : row.tier
-                        )
-                      }
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-            <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
-              {offerToCommitByTier.reduce((sum, d) => sum + d.offered, 0)} total offered across tiers
-            </div>
-            {selectedRatingTier && (
-              <div style={{ marginTop: '4px', fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
-                {(() => {
-                  const row = offerToCommitByTier.find((t) => t.tier === selectedRatingTier)
-                  if (!row) return null
-                  return (
-                    <>
-                      Focus: {row.tier} &middot; {row.committed}/{row.offered} committed ({row.rate}%)
-                    </>
-                  )
-                })()}
-              </div>
-            )}
-          </>
-        )}
-      </section>
-
-      {/* Schools Taking Our Offers */}
-      <section className="panel" style={{
-        padding: '24px',
-        borderRadius: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-      }}>
-        <div style={{ marginBottom: '12px' }}>
-          <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600, color: BYU_BLUE }}>
-            Schools Taking Our Offers
-          </h3>
-          <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
-            HS players who committed elsewhere after being offered
-          </p>
-        </div>
-        {competitorSchools.length === 0 ? (
-          <p className="empty-state" style={{ padding: '40px', textAlign: 'center' }}>
-            No players committed elsewhere yet
-          </p>
-        ) : (
-          <div style={{ width: '100%', height: '280px', minHeight: '280px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={competitorSchools} layout="vertical" margin={{ top: 5, right: 30, left: 5, bottom: 5 }} barCategoryGap="25%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.4} horizontal={false} />
-                <YAxis
-                  dataKey="school"
-                  type="category"
-                  tick={{ fontSize: 11, fill: '#6b7280' }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={120}
-                />
-                <XAxis
-                  type="number"
-                  allowDecimals={false}
-                  tick={{ fontSize: 10, fill: '#6b7280' }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="count" name="Players" radius={[0, 6, 6, 0]} maxBarSize={28}>
-                    {competitorSchools.map((row) => (
-                      <Cell
-                        key={row.school}
-                        cursor="pointer"
-                        fill={selectedCompetitorSchool === row.school ? '#fbbf24' : '#f97316'}
-                        onClick={() =>
-                          setSelectedCompetitorSchool(
-                            selectedCompetitorSchool === row.school ? null : row.school
-                          )
-                        }
+                  }} />
+                  <Bar dataKey="rate" name="Rate (%)" radius={[4, 4, 0, 0]}>
+                    {offerToCommitByTier.map(row => (
+                      <Cell key={row.tier} cursor="pointer"
+                        fill={selectedRatingTier === row.tier ? BYU_BLUE : '#6366F1'}
+                        onClick={() => setSelectedRatingTier(selectedRatingTier === row.tier ? null : row.tier)}
                       />
                     ))}
                   </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-        {selectedCompetitorSchool && (
-          <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280' }}>
-            Focus: {selectedCompetitorSchool}
-          </div>
-        )}
-      </section>
+                </BarChart>
+              </ResponsiveContainer>
+              <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--av2-muted)', marginTop: 4 }}>
+                {offerToCommitByTier.reduce((s, d) => s + d.offered, 0)} total offered
+                {selectedRatingTier && (() => { const r = offerToCommitByTier.find(t => t.tier === selectedRatingTier); return r ? ` · ${r.tier}: ${r.committed}/${r.offered} (${r.rate}%)` : '' })()}
+              </p>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Position Needs */}
-      {positionNeeds.length > 0 && (
-        <section className="panel" style={{
-          padding: '24px',
-          marginBottom: '24px',
-          borderRadius: '12px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-        }}>
-          <div style={{ marginBottom: '16px' }}>
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 600, color: BYU_BLUE }}>
-              Position Needs
-            </h3>
-            <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
-              Recruiting status by position &middot; Click goal to edit
-            </p>
+      {/* ── 05 / COMPETITOR INTELLIGENCE ────────────────────── */}
+      {competitorSchools.length > 0 && (
+        <>
+          <div className="av2-sh" style={{ marginTop: 28 }}>
+            <span className="av2-sh-num">05</span>
+            <span className="av2-sh-t">Competitor Intelligence</span>
+            <span className="av2-sh-s">HS players who chose another school after our offer</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px' }}>
-            {positionNeeds.map((pos) => {
-              const committedCount = (pos.statuses['COMMITTED'] || 0) + (pos.statuses['SIGNED'] || 0)
-              const offeredCount = pos.statuses['OFFERED'] || 0
-              const goalValue = positionGoals[pos.position] || 0
-              const isEditing = editingGoalPos === pos.position
-
-              return (
-                <div
-                  key={pos.position}
-                  onClick={() =>
-                    setSelectedCompositePosition(
-                      selectedCompositePosition === pos.position ? null : pos.position
-                    )
-                  }
-                  style={{
-                    padding: '12px',
-                    background: 'var(--color-bg-secondary)',
-                    borderRadius: '10px',
-                    border:
-                      selectedCompositePosition === pos.position
-                        ? `2px solid ${BYU_BLUE_LIGHT}`
-                        : '1px solid var(--color-border)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <div style={{
-                    fontSize: '14px',
-                    fontWeight: 700,
-                    marginBottom: '8px',
-                    color: 'white',
-                    background: BYU_BLUE,
-                    display: 'inline-block',
-                    padding: '2px 10px',
-                    borderRadius: '4px',
-                  }}>
-                    {pos.position}
-                    <span style={{ fontSize: '12px', fontWeight: 400, marginLeft: '6px', opacity: 0.8 }}>
-                      ({pos.count})
-                    </span>
+          <div className="av2-panel">
+            <p className="av2-chart-label">Schools Taking Our Offers</p>
+            <div className="av2-school-list">
+              {competitorSchools.slice(0, 12).map((s, i) => (
+                <div key={s.school} className={`av2-school-row${selectedCompetitorSchool === s.school ? ' active' : ''}`}
+                  onClick={() => setSelectedCompetitorSchool(selectedCompetitorSchool === s.school ? null : s.school)}>
+                  <span className="av2-school-rank-num">{String(i + 1).padStart(2, '0')}</span>
+                  <span className="av2-school-name">{s.school}</span>
+                  <div className="av2-school-bar-wrap">
+                    <div className="av2-school-bar" style={{ width: `${(s.count / competitorSchools[0].count) * 100}%` }} />
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                      <span style={{ color: '#16a34a', fontWeight: 500 }}>Committed</span>
-                      <span style={{ fontWeight: 600 }}>{committedCount}</span>
+                  <span className="av2-school-count">{s.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── 06 / POSITION NEEDS ─────────────────────────────── */}
+      {positionNeeds.length > 0 && (
+        <>
+          <div className="av2-sh" style={{ marginTop: 28 }}>
+            <span className="av2-sh-num">06</span>
+            <span className="av2-sh-t">Position Needs</span>
+            <span className="av2-sh-s">Recruiting status by position · click goal to edit</span>
+          </div>
+          <div className="av2-panel">
+            <div className="av2-pos-grid">
+              {positionNeeds.map(pos => {
+                const committedCount = (pos.statuses['COMMITTED'] || 0) + (pos.statuses['SIGNED'] || 0)
+                const offeredCount = pos.statuses['OFFERED'] || 0
+                const goalValue = positionGoals[pos.position] || 0
+                const isEditing = editingGoalPos === pos.position
+                const fillPct = goalValue > 0 ? Math.min(100, (committedCount / goalValue) * 100) : 0
+                return (
+                  <div key={pos.position}
+                    className={`av2-pos-card${selectedCompositePosition === pos.position ? ' active' : ''}`}
+                    onClick={() => setSelectedCompositePosition(selectedCompositePosition === pos.position ? null : pos.position)}>
+                    <div className="av2-pos-header">
+                      <span className="av2-pos-name">{pos.position}</span>
+                      <span className="av2-pos-total">{pos.count}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                      <span style={{ color: '#2563eb', fontWeight: 500 }}>Offered</span>
-                      <span style={{ fontWeight: 600 }}>{offeredCount}</span>
+                    <div className="av2-pos-stats">
+                      <div className="av2-pos-stat">
+                        <span style={{ color: '#22C55E' }}>{committedCount}</span>
+                        <span className="av2-pos-stat-l">Committed</span>
+                      </div>
+                      <div className="av2-pos-stat">
+                        <span style={{ color: '#3B82F6' }}>{offeredCount}</span>
+                        <span className="av2-pos-stat-l">Offered</span>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', alignItems: 'center' }}>
-                      <span style={{ color: BYU_BLUE, fontWeight: 500 }}>Goal</span>
+                    {goalValue > 0 && (
+                      <div className="av2-pos-progress">
+                        <div className="av2-pos-progress-fill" style={{ width: `${fillPct}%` }} />
+                      </div>
+                    )}
+                    <div className="av2-pos-goal-row">
+                      <span className="av2-pos-stat-l">Goal</span>
                       {isEditing ? (
-                        <input
-                          type="number"
-                          min="0"
-                          autoFocus
+                        <input type="number" min="0" autoFocus className="av2-goal-input"
                           value={editingGoalValue}
-                          onChange={(e) => setEditingGoalValue(e.target.value)}
+                          onChange={e => setEditingGoalValue(e.target.value)}
                           onBlur={() => {
                             const num = parseInt(editingGoalValue, 10)
-                            const newGoals = { ...positionGoals, [pos.position]: isNaN(num) ? 0 : num }
-                            setPositionGoals(newGoals)
-                            setEditingGoalPos(null)
-                            recruitingGoalsApi.save(newGoals).catch(console.error)
+                            const ng = { ...positionGoals, [pos.position]: isNaN(num) ? 0 : num }
+                            setPositionGoals(ng); setEditingGoalPos(null)
+                            recruitingGoalsApi.save(ng).catch(console.error)
                           }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') e.target.blur()
-                            if (e.key === 'Escape') setEditingGoalPos(null)
-                          }}
-                          style={{
-                            width: '40px',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            textAlign: 'right',
-                            padding: '1px 4px',
-                            border: `1px solid ${BYU_BLUE}`,
-                            borderRadius: '4px',
-                            outline: 'none',
-                            background: 'var(--color-bg-card, white)',
-                            color: 'var(--color-text)',
-                          }}
+                          onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingGoalPos(null) }}
+                          onClick={e => e.stopPropagation()}
                         />
                       ) : (
-                        <span
-                          onClick={() => {
-                            setEditingGoalPos(pos.position)
-                            setEditingGoalValue(String(goalValue))
-                          }}
-                          style={{
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            padding: '1px 4px',
-                            borderRadius: '4px',
-                            borderBottom: '1px dashed #9ca3af',
-                          }}
-                          title="Click to edit goal"
-                        >
-                          {goalValue || '\u2014'}
+                        <span className="av2-goal-val"
+                          onClick={e => { e.stopPropagation(); setEditingGoalPos(pos.position); setEditingGoalValue(String(goalValue)) }}
+                          title="Click to edit goal">
+                          {goalValue || '—'}
                         </span>
                       )}
                     </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
-        </section>
+        </>
       )}
 
-      {/* Top Players by Position */}
-      <section className="panel" style={{
-        padding: '24px',
-        borderRadius: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-      }}>
-        <div style={{ marginBottom: '20px' }}>
-          <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 600, color: BYU_BLUE }}>
-            Top Players by Position
-          </h3>
-          <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
-            Top 3 players by composite rating for each position
-            {isTopPlayersDemo && <span style={{ marginLeft: '8px', fontStyle: 'italic', color: '#f59e0b' }}>(Sample Data)</span>}
-          </p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-          {POSITION_ORDER.filter(pos => topPlayersByPosition[pos]?.length > 0).map((pos) => (
-            <div key={pos} style={{
-              padding: '16px',
-              background: 'var(--color-bg-secondary)',
-              borderRadius: '12px',
-              border: '1px solid var(--color-border)',
-            }}>
-              <h4 style={{
-                margin: '0 0 12px 0',
-                fontSize: '14px',
-                fontWeight: 700,
-                color: 'white',
-                background: BYU_BLUE,
-                display: 'inline-block',
-                padding: '4px 14px',
-                borderRadius: '6px',
-              }}>
-                {pos}
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {topPlayersByPosition[pos].map((player, idx) => (
-                  <div key={player.id} style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 10px',
-                    background: idx === 0 ? BYU_BLUE_TINT : 'transparent',
-                    borderRadius: '6px',
-                  }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '13px', fontWeight: idx === 0 ? 600 : 500, marginBottom: '2px' }}>
-                        <Link to={`/player/${player.id}/stats`} className="analytics-player-link">
-                          {player.name}
-                        </Link>
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#6b7280' }}>
-                        {player.school || 'No school'}
-                      </div>
+      {/* ── 07 / BREAKOUT PLAYERS ───────────────────────────── */}
+      {filteredBreakoutPlayers.length > 0 && (
+        <>
+          <div className="av2-sh" style={{ marginTop: 28 }}>
+            <span className="av2-sh-num">07</span>
+            <span className="av2-sh-t">Breakout Players</span>
+            <span className="av2-sh-s">Latest game significantly exceeded season average{isBreakoutDemo && ' · sample data'}</span>
+          </div>
+          <div className="av2-panel">
+            <div className="av2-breakout-grid">
+              {filteredBreakoutPlayers.map(bp => (
+                <div key={bp.player.id} className="av2-breakout-card">
+                  <div className="av2-breakout-score" style={{ background: bp.breakoutScore >= 2.5 ? '#22C55E' : '#F59E0B' }}>
+                    {bp.breakoutScore.toFixed(1)}×
+                  </div>
+                  <div>
+                    <div className="av2-breakout-name-row">
+                      <Link to={`/player/${bp.player.id}/stats`} className="av2-breakout-name">{bp.player.name}</Link>
+                      <span className="av2-pos-badge">{bp.player.position}</span>
+                      {bp.grade && <span className="av2-grade-badge">{bp.grade}</span>}
                     </div>
-                    <div style={{
-                      fontSize: '16px',
-                      fontWeight: 700,
-                      color: player.rating >= 88 ? '#16a34a' : player.rating >= 85 ? BYU_BLUE : '#dc2626',
-                      marginLeft: '12px',
-                    }}>
-                      {player.rating.toFixed(2)}
+                    <div className="av2-breakout-meta">
+                      {bp.player.school} · vs. {bp.game.opponent} · {new Date(bp.game.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </div>
                   </div>
-                ))}
+                  <div className="av2-breakout-stats">
+                    {bp.keyStats.map(stat => (
+                      <div key={stat.statType} className="av2-breakout-stat">
+                        <span className="av2-breakout-stat-label">{stat.statType}</span>
+                        <span className="av2-breakout-stat-game">{stat.gameValue}{stat.unit ? ` ${stat.unit}` : ''}</span>
+                        <span className="av2-breakout-stat-avg">avg {stat.seasonAvg}{stat.unit ? ` ${stat.unit}` : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── 08 / TOP PROSPECTS ──────────────────────────────── */}
+      <div className="av2-sh" style={{ marginTop: 28 }}>
+        <span className="av2-sh-num">08</span>
+        <span className="av2-sh-t">Top Prospects by Position</span>
+        <span className="av2-sh-s">Top 3 by composite rating{isTopPlayersDemo && ' · sample data'}</span>
+      </div>
+      <div className="av2-panel">
+        <div className="av2-top-grid">
+          {POSITION_ORDER.filter(pos => topPlayersByPosition[pos]?.length > 0).map(pos => (
+            <div key={pos} className="av2-top-pos-group">
+              <div className="av2-top-pos-header">
+                <span className="av2-pos-badge av2-pos-badge-lg">{pos}</span>
               </div>
+              {topPlayersByPosition[pos].map((player, idx) => (
+                <div key={player.id} className={`av2-top-player${idx === 0 ? ' av2-top-player-1' : ''}`}>
+                  <span className="av2-top-rank">#{idx + 1}</span>
+                  <div className="av2-top-player-info">
+                    <Link to={`/player/${player.id}/stats`} className="av2-top-player-name">{player.name}</Link>
+                    <span className="av2-top-player-school">{player.school || '—'}</span>
+                  </div>
+                  <span className="av2-top-rating" style={{ color: player.rating >= 88 ? '#22C55E' : player.rating >= 85 ? '#002E5D' : '#F59E0B' }}>
+                    {player.rating.toFixed(2)}
+                  </span>
+                </div>
+              ))}
             </div>
           ))}
         </div>
-      </section>
+      </div>
     </div>
   )
 }

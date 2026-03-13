@@ -160,49 +160,63 @@ function VisitCalendar() {
 
   const selectedDayEvents = eventsByDate[selectedDate] || []
 
+  const visitTypeColor = (type) => {
+    const map = {
+      'Official': '#002E5D',
+      'Unofficial': '#D97706',
+      'Gameday': '#16A34A',
+      'Junior Day': '#7C3AED',
+      'Camp': '#EA580C',
+      'Practice': '#475569',
+      'Meeting': '#0891B2',
+      'Home Visit': '#BE185D',
+      'Other': '#6B7280',
+    }
+    return map[type] || '#6B7280'
+  }
+
   return (
-    <div className="page visit-calendar-page">
-      <header className="page-header">
-        <div>
-          <h2>
-            <CalendarIcon size={20} style={{ marginRight: 8 }} />
-            Visit Calendar
-          </h2>
-          <p>Plan official/unofficial visits, practices, meetings, and more.</p>
+    <div className="page vc-page">
+
+      {/* ── HEADER ──────────────────────────────────────────────── */}
+      <div className="vc-header">
+        <div className="vc-header-left">
+          <span className="vc-eyebrow">BYU Football · Recruiting Ops</span>
+          <h1 className="vc-title">Visit Calendar</h1>
         </div>
-        <div className="visit-calendar-header-controls">
-          <button
-            className="btn-secondary"
-            onClick={() => {
-              setMonthCursor(startOfMonth(new Date()))
-              setSelectedDate(new Date().toISOString().split('T')[0])
-            }}
-          >
-            Today
-          </button>
-          <button className="btn-secondary" onClick={() => setMonthCursor((prev) => addMonths(prev, -1))}>
+        <div className="vc-header-center">
+          <button className="vc-nav-btn" onClick={() => setMonthCursor(prev => addMonths(prev, -1))}>
             <ChevronLeft size={16} />
           </button>
-          <span className="visit-calendar-month-label">{monthLabel}</span>
-          <button className="btn-secondary" onClick={() => setMonthCursor((prev) => addMonths(prev, 1))}>
+          <span className="vc-month-label">{monthLabel}</span>
+          <button className="vc-nav-btn" onClick={() => setMonthCursor(prev => addMonths(prev, 1))}>
             <ChevronRight size={16} />
           </button>
-          <button className="btn-primary" onClick={() => handleOpenForm(selectedDate)}>
-            <Plus size={16} /> Schedule
+          <button className="vc-today-btn" onClick={() => {
+            setMonthCursor(startOfMonth(new Date()))
+            setSelectedDate(new Date().toISOString().split('T')[0])
+          }}>Today</button>
+        </div>
+        <div className="vc-header-right">
+          {status && <span className="vc-status">{status}</span>}
+          <button className="vc-schedule-btn" onClick={() => handleOpenForm(selectedDate)}>
+            <Plus size={14} /> Schedule Visit
           </button>
         </div>
-        {status && <span className="helper-text">{status}</span>}
-      </header>
+      </div>
 
-      <div className="visit-calendar-layout">
-        <section className="panel visit-calendar-grid-panel">
-          <div className="visit-calendar-grid">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((dow) => (
-              <div key={dow} className="visit-calendar-dow">
-                {dow}
-              </div>
+      {/* ── BODY ─────────────────────────────────────────────────── */}
+      <div className="vc-body">
+
+        {/* Calendar Grid */}
+        <div className="vc-grid-panel">
+          <div className="vc-dow-row">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(dow => (
+              <div key={dow} className="vc-dow">{dow}</div>
             ))}
-            {calendarDays.map((date) => {
+          </div>
+          <div className="vc-grid">
+            {calendarDays.map(date => {
               const dateStr = date.toISOString().split('T')[0]
               const inMonth = date.getMonth() === monthCursor.getMonth()
               const isToday = dateStr === new Date().toISOString().split('T')[0]
@@ -212,187 +226,148 @@ function VisitCalendar() {
                 <button
                   key={dateStr + String(date.getMonth())}
                   type="button"
-                  className={`visit-calendar-day${inMonth ? '' : ' muted'}${
-                    isToday ? ' today' : ''
-                  }${isSelected ? ' selected' : ''}`}
+                  className={[
+                    'vc-day',
+                    !inMonth ? 'vc-day-muted' : '',
+                    isToday ? 'vc-day-today' : '',
+                    isSelected ? 'vc-day-selected' : '',
+                  ].filter(Boolean).join(' ')}
                   onClick={() => handleDayClick(dateStr)}
                 >
-                  <div className="visit-calendar-day-header">
-                    <span>{date.getDate()}</span>
-                    {dayEvents.length > 0 && (
-                      <span className="visit-calendar-day-count">{dayEvents.length}</span>
-                    )}
-                  </div>
-                  <div className="visit-calendar-day-events">
-                    {dayEvents.slice(0, 3).map((evt) => (
-                      <span key={evt.id} className="visit-calendar-pill">
+                  <span className="vc-day-num">{date.getDate()}</span>
+                  <div className="vc-day-pills">
+                    {dayEvents.slice(0, 2).map(evt => (
+                      <span
+                        key={evt.id}
+                        className="vc-pill"
+                        style={{ '--pill-color': visitTypeColor(evt.visit_type) }}
+                        title={`${evt.visit_type}${evt.player_name ? ' · ' + evt.player_name : ''}`}
+                      >
                         {evt.visit_type || 'Visit'}
                       </span>
                     ))}
-                    {dayEvents.length > 3 && (
-                      <span className="visit-calendar-more">+{dayEvents.length - 3} more</span>
+                    {dayEvents.length > 2 && (
+                      <span className="vc-pill-more">+{dayEvents.length - 2}</span>
                     )}
                   </div>
                 </button>
               )
             })}
           </div>
-        </section>
+        </div>
 
-        <section className="panel visit-calendar-sidebar">
-          <div className="visit-calendar-sidebar-header">
-            <h3>
-              {selectedDate
-                ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    month: 'short',
-                    day: 'numeric',
-                  })
-                : 'Selected Day'}
-            </h3>
-            <button className="btn-ghost" onClick={() => handleOpenForm(selectedDate)}>
-              <Plus size={14} /> Schedule
+        {/* Sidebar */}
+        <div className="vc-sidebar">
+          <div className="vc-sidebar-header">
+            <div>
+              <div className="vc-sidebar-weekday">
+                {selectedDate
+                  ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' })
+                  : 'Select a day'}
+              </div>
+              <div className="vc-sidebar-date">
+                {selectedDate
+                  ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                  : ''}
+              </div>
+            </div>
+            <button className="vc-add-day-btn" onClick={() => handleOpenForm(selectedDate)}>
+              <Plus size={13} />
             </button>
           </div>
+
           {selectedDayEvents.length === 0 ? (
-            <p className="empty-state">No events on this day yet.</p>
+            <div className="vc-sidebar-empty">
+              <CalendarIcon size={28} strokeWidth={1.2} />
+              <span>No visits scheduled</span>
+            </div>
           ) : (
-            <ul className="visit-calendar-event-list">
-              {selectedDayEvents.map((evt) => (
-                <li key={evt.id} className="visit-calendar-event">
-                  <div className="visit-calendar-event-main">
-                    <div className="visit-calendar-event-title">
-                      <strong>{evt.visit_type || 'Visit'}</strong>
-                      {evt.player_name && <span> · {evt.player_name}</span>}
+            <ul className="vc-event-list">
+              {selectedDayEvents.map(evt => (
+                <li key={evt.id} className="vc-event-card" style={{ '--evt-color': visitTypeColor(evt.visit_type) }}>
+                  <div className="vc-event-type-bar" />
+                  <div className="vc-event-body">
+                    <div className="vc-event-top">
+                      <span className="vc-event-type" style={{ color: visitTypeColor(evt.visit_type) }}>{evt.visit_type || 'Visit'}</span>
+                      {evt.player_name && <span className="vc-event-player">{evt.player_name}</span>}
                     </div>
                     {evt.school && (
-                      <div className="visit-calendar-event-meta">
-                        <GraduationCapIcon /> {evt.school}
-                      </div>
+                      <div className="vc-event-meta"><GraduationCapIcon />{evt.school}</div>
                     )}
                     {evt.location && (
-                      <div className="visit-calendar-event-meta">
-                        <MapPin size={14} /> {evt.location}
-                      </div>
+                      <div className="vc-event-meta"><MapPin size={11} />{evt.location}</div>
                     )}
-                    {evt.notes && <p className="visit-calendar-event-notes">{evt.notes}</p>}
-                  </div>
-                  <div className="visit-calendar-event-footer">
-                    <span className="visit-calendar-event-created">
-                      Added by {evt.created_by_name || 'Unknown'}
-                    </span>
+                    {evt.notes && <p className="vc-event-notes">{evt.notes}</p>}
+                    <div className="vc-event-footer">Added by {evt.created_by_name || 'Unknown'}</div>
                   </div>
                 </li>
               ))}
             </ul>
           )}
-        </section>
+
+          {/* Legend */}
+          <div className="vc-legend">
+            {VISIT_TYPES.map(type => (
+              <div key={type} className="vc-legend-item">
+                <span className="vc-legend-dot" style={{ background: visitTypeColor(type) }} />
+                <span className="vc-legend-label">{type}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
+      {/* ── MODAL ─────────────────────────────────────────────────── */}
       {showForm && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <div className="modal-header">
-              <h3>Schedule Visit / Event</h3>
-              <button className="btn-ghost" onClick={() => setShowForm(false)}>
-                <X size={16} />
+        <div className="vc-modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setShowForm(false) }}>
+          <div className="vc-modal">
+            <div className="vc-modal-header">
+              <span className="vc-modal-title">Schedule Visit / Event</span>
+              <button className="vc-modal-close" onClick={() => setShowForm(false)}>
+                <X size={15} />
               </button>
             </div>
-            <div className="modal-body">
-              <div className="form-grid">
+            <div className="vc-modal-body">
+              <div className="vc-modal-grid">
                 <label className="field">
                   Date
-                  <input
-                    type="date"
-                    value={form.visit_date}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        visit_date: e.target.value,
-                      }))
-                    }
-                  />
+                  <input type="date" value={form.visit_date}
+                    onChange={e => setForm(prev => ({ ...prev, visit_date: e.target.value }))} />
                 </label>
                 <label className="field">
                   Player
-                  <select
-                    value={form.player_id}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        player_id: e.target.value,
-                      }))
-                    }
-                  >
+                  <select value={form.player_id}
+                    onChange={e => setForm(prev => ({ ...prev, player_id: e.target.value }))}>
                     <option value="">Select player…</option>
-                    {sortedPlayers.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} {p.school ? `· ${p.school}` : ''}
-                      </option>
+                    {sortedPlayers.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}{p.school ? ` · ${p.school}` : ''}</option>
                     ))}
                   </select>
                 </label>
                 <label className="field">
-                  Type
-                  <select
-                    value={form.visit_type}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        visit_type: e.target.value,
-                      }))
-                    }
-                  >
-                    {VISIT_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
+                  Visit Type
+                  <select value={form.visit_type}
+                    onChange={e => setForm(prev => ({ ...prev, visit_type: e.target.value }))}>
+                    {VISIT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </label>
                 <label className="field">
                   Location
-                  <input
-                    type="text"
-                    value={form.location}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        location: e.target.value,
-                      }))
-                    }
-                    placeholder="BYU, high school, facility, etc."
-                  />
+                  <input type="text" value={form.location}
+                    onChange={e => setForm(prev => ({ ...prev, location: e.target.value }))}
+                    placeholder="BYU, high school, facility…" />
                 </label>
                 <label className="field" style={{ gridColumn: '1 / -1' }}>
                   Notes
-                  <textarea
-                    rows={3}
-                    value={form.notes}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        notes: e.target.value,
-                      }))
-                    }
-                    placeholder="Key people to meet, agenda, logistics…"
-                  />
+                  <textarea rows={3} value={form.notes}
+                    onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Key people, agenda, logistics…" />
                 </label>
               </div>
             </div>
-            <div className="modal-footer">
-              <button className="btn-primary" onClick={handleCreate}>
-                Schedule
-              </button>
-              <button
-                className="btn-secondary"
-                onClick={() => {
-                  resetForm()
-                  setShowForm(false)
-                }}
-              >
-                Cancel
-              </button>
+            <div className="vc-modal-footer">
+              <button className="vc-modal-cancel" onClick={() => { resetForm(); setShowForm(false) }}>Cancel</button>
+              <button className="vc-modal-submit" onClick={handleCreate}>Schedule</button>
             </div>
           </div>
         </div>

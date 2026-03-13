@@ -96,6 +96,14 @@ export const createPlayerSchema = z.object({
   committed_date: z.string().max(50).optional().nullable(),
   composite_rating: z.number().min(0).max(100).optional().nullable(),
 
+  // Measurables (Big 12 benchmarking)
+  height_in: z.number().min(0).max(120).optional().nullable(),
+  weight_lb: z.number().min(0).max(600).optional().nullable(),
+  forty_time: z.number().min(0).max(10).optional().nullable(),
+  arm_length_in: z.number().min(0).max(60).optional().nullable(),
+  hand_size_in: z.number().min(0).max(20).optional().nullable(),
+  undersized_traits: z.array(z.string().max(100)).optional().nullable(),
+
   // Player type flags
   is_juco: z.boolean().optional(),
   is_transfer_wishlist: z.boolean().optional(),

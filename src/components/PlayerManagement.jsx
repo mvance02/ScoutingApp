@@ -15,8 +15,25 @@ import {
 import { assignmentsApi } from '../utils/api'
 import byuLogo from '../assets/byu-logo.png'
 import EmptyState from './EmptyState'
+import { BIG12_STARTER_AVG_BY_POSITION, normalizeBenchmarkPosition } from '../utils/benchmarks'
 
-const POSITIONS = ['All', 'QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'DB', 'K', 'P', 'ATH']
+const POSITIONS = [
+  'All',
+  'QB',
+  'RB',
+  'WR (slot)',
+  'WR (wideout)',
+  'TE',
+  'OT',
+  'OG',
+  'DL',
+  'LB',
+  'CB',
+  'S',
+  'K',
+  'P',
+  'ATH',
+]
 
 const RECRUITING_STATUSES = [
   { value: 'Watching', label: 'Watching', color: 'status-watching' },
@@ -28,6 +45,51 @@ const RECRUITING_STATUSES = [
   { value: 'Signed', label: 'Signed', color: 'status-signed' },
   { value: 'Passed', label: 'Passed', color: 'status-passed' },
 ]
+
+const UNDERSIZED_TRAITS_BY_POSITION = {
+  DE: [
+    'Elite get-off / first step',
+    'Verified 4.45–4.55 speed',
+    'Exceptional bend / pass-rush toolkit',
+    'Special teams core value',
+  ],
+  DEFAULT: [
+    'Elite speed / burst',
+    'Exceptional football IQ / instincts',
+    'High motor / competitiveness',
+    'Position versatility',
+    'Special teams core value',
+  ],
+}
+
+function getPrimaryPositionDisplay(player) {
+  const raw = (player.position || '').toUpperCase().trim()
+  const offense = (player.offensePosition || '').toUpperCase()
+  const defense = (player.defensePosition || '').toUpperCase()
+
+  if (!raw) return 'Position TBD'
+
+  if (raw === 'OL') {
+    if (offense.includes('OT') || offense.includes('TACKLE')) return 'OT'
+    if (offense.includes('OG') || offense.includes('GUARD')) return 'OG'
+    if (offense.includes('C') || offense.includes('CENTER')) return 'OG'
+    return 'OT'
+  }
+
+  if (raw === 'WR') {
+    if (offense.includes('SLOT') || offense.includes('SWR')) return 'WR (slot)'
+    if (offense.includes('WIDE') || offense.includes('WWR')) return 'WR (wideout)'
+    return 'WR (wideout)'
+  }
+
+  if (raw === 'DB') {
+    if (defense.includes('CB') || defense.includes('CORNER')) return 'CB'
+    if (defense.includes('S') || defense.includes('SAFETY')) return 'S'
+    return 'S'
+  }
+
+  return player.position || 'Position TBD'
+}
 
 function PlayerAvatar({ name, url, size = 40 }) {
   if (url) {
@@ -96,6 +158,15 @@ function PlayerManagement() {
   const [photoUploading, setPhotoUploading] = useState(false)
   const [formErrors, setFormErrors] = useState({})
   const [editErrors, setEditErrors] = useState({})
+  const [undersizedModal, setUndersizedModal] = useState({
+    open: false,
+    position: null,
+    heightDiff: null,
+    weightDiff: null,
+    pendingAction: null, // 'add' | 'edit'
+    pendingPlayer: null,
+    selectedTraits: [],
+  })
   const photoInputRef = useRef(null)
   const [form, setForm] = useState({
     name: '',
@@ -111,6 +182,12 @@ function PlayerManagement() {
     committedSchool: '',
     committedDate: '',
     compositeRating: '',
+    heightIn: '',
+    weightLb: '',
+    fortyTime: '',
+    armLengthIn: '',
+    handSizeIn: '',
+    undersizedTraits: [],
     isLds: false,
     offeredDate: '',
   })
@@ -225,6 +302,37 @@ function PlayerManagement() {
     return errors
   }
 
+  function getPrimaryPositionForBenchmark(p) {
+    const raw = p?.position || p?.defensePosition || p?.offensePosition || ''
+    const normalized = normalizeBenchmarkPosition(raw)
+    if (normalized && BIG12_STARTER_AVG_BY_POSITION[normalized]) return normalized
+    const d = normalizeBenchmarkPosition(p?.defensePosition)
+    if (d && BIG12_STARTER_AVG_BY_POSITION[d]) return d
+    const o = normalizeBenchmarkPosition(p?.offensePosition)
+    if (o && BIG12_STARTER_AVG_BY_POSITION[o]) return o
+    return normalized
+  }
+
+  function getUndersizedDiff(playerLike) {
+    const pos = getPrimaryPositionForBenchmark(playerLike)
+    if (!pos) return null
+    const avg = BIG12_STARTER_AVG_BY_POSITION[pos]
+    if (!avg) return null
+
+    const h = playerLike.heightIn != null && playerLike.heightIn !== '' ? Number(playerLike.heightIn) : null
+    const w = playerLike.weightLb != null && playerLike.weightLb !== '' ? Number(playerLike.weightLb) : null
+    if (h == null && w == null) return null
+
+    const heightDiff = h != null ? Number((avg.height_in - h).toFixed(1)) : null
+    const weightDiff = w != null ? Number((avg.weight_lb - w).toFixed(1)) : null
+
+    const undersizedByHeight = heightDiff != null && heightDiff >= 2
+    const undersizedByWeight = weightDiff != null && weightDiff >= 10
+    if (!undersizedByHeight && !undersizedByWeight) return null
+
+    return { position: pos, heightDiff, weightDiff }
+  }
+
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target
     setForm((prev) => ({
@@ -306,6 +414,12 @@ function PlayerManagement() {
       committedSchool: form.committedSchool.trim(),
       committedDate: form.committedDate,
       compositeRating: form.compositeRating ? parseFloat(form.compositeRating) : null,
+      heightIn: form.heightIn !== '' ? parseFloat(form.heightIn) : null,
+      weightLb: form.weightLb !== '' ? parseFloat(form.weightLb) : null,
+      fortyTime: form.fortyTime !== '' ? parseFloat(form.fortyTime) : null,
+      armLengthIn: form.armLengthIn !== '' ? parseFloat(form.armLengthIn) : null,
+      handSizeIn: form.handSizeIn !== '' ? parseFloat(form.handSizeIn) : null,
+      undersizedTraits: Array.isArray(form.undersizedTraits) ? form.undersizedTraits : [],
       isJuco: false,
       isTransferWishlist: false,
       isLds: form.isLds || false,
@@ -313,6 +427,19 @@ function PlayerManagement() {
     }
 
     try {
+      const undersized = getUndersizedDiff(newPlayerData)
+      if (undersized) {
+        setUndersizedModal({
+          open: true,
+          position: undersized.position,
+          heightDiff: undersized.heightDiff,
+          weightDiff: undersized.weightDiff,
+          pendingAction: 'add',
+          pendingPlayer: newPlayerData,
+          selectedTraits: [],
+        })
+        return
+      }
       const newPlayer = await createPlayer(newPlayerData)
       setPlayers([newPlayer, ...players])
     } catch (err) {
@@ -337,6 +464,12 @@ function PlayerManagement() {
       committedSchool: '',
       committedDate: '',
       compositeRating: '',
+      heightIn: '',
+      weightLb: '',
+      fortyTime: '',
+      armLengthIn: '',
+      handSizeIn: '',
+      undersizedTraits: [],
       isLds: false,
       offeredDate: '',
     })
@@ -395,6 +528,12 @@ function PlayerManagement() {
       committedSchool: player.committedSchool || '',
       committedDate: player.committedDate || '',
       compositeRating: player.compositeRating || '',
+      heightIn: player.heightIn ?? '',
+      weightLb: player.weightLb ?? '',
+      fortyTime: player.fortyTime ?? '',
+      armLengthIn: player.armLengthIn ?? '',
+      handSizeIn: player.handSizeIn ?? '',
+      undersizedTraits: Array.isArray(player.undersizedTraits) ? player.undersizedTraits : [],
       isLds: player.isLds || false,
       offeredDate: player.offeredDate || '',
     })
@@ -425,6 +564,19 @@ function PlayerManagement() {
     setPlayers(nextPlayers)
 
     try {
+      const undersized = getUndersizedDiff(updatedPlayer)
+      if (undersized) {
+        setUndersizedModal({
+          open: true,
+          position: undersized.position,
+          heightDiff: undersized.heightDiff,
+          weightDiff: undersized.weightDiff,
+          pendingAction: 'edit',
+          pendingPlayer: updatedPlayer,
+          selectedTraits: Array.isArray(updatedPlayer.undersizedTraits) ? updatedPlayer.undersizedTraits : [],
+        })
+        return
+      }
       await updatePlayer(editingPlayerId, updatedPlayer)
     } catch (err) {
       console.error('Error updating player:', err)
@@ -506,6 +658,150 @@ function PlayerManagement() {
     return statusObj?.color || 'status-watching'
   }
 
+  const renderUndersizedAlert = () => {
+    if (!undersizedModal.open) return null
+    return (
+      <div
+        style={{
+          marginTop: '12px',
+          marginBottom: '8px',
+          borderRadius: '12px',
+          border: '1px solid rgba(248, 113, 113, 0.6)',
+          background: 'rgba(254, 242, 242, 0.95)',
+          padding: '14px 16px',
+          boxShadow: '0 8px 20px rgba(0, 0, 0, 0.08)',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: '4px', color: '#b91c1c' }}>
+              Undersized vs Big 12 prototype for {undersizedModal.position}
+            </div>
+            <div style={{ marginBottom: '10px', color: 'var(--color-text-muted)', fontSize: '13px' }}>
+              {undersizedModal.heightDiff != null && (
+                <div>Height: {undersizedModal.heightDiff}" shorter than Big 12 avg</div>
+              )}
+              {undersizedModal.weightDiff != null && (
+                <div>Weight: {undersizedModal.weightDiff} lb lighter than Big 12 avg</div>
+              )}
+            </div>
+
+            <div
+              style={{
+                padding: '10px 12px',
+                borderRadius: '10px',
+                border: '1px solid rgba(248, 113, 113, 0.6)',
+                background: 'white',
+              }}
+            >
+              <div style={{ fontWeight: 600, marginBottom: '6px' }}>
+                Does he have at least one of these to overcome being undersized?
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                {(UNDERSIZED_TRAITS_BY_POSITION[undersizedModal.position] ||
+                  UNDERSIZED_TRAITS_BY_POSITION.DEFAULT
+                ).map((trait) => (
+                  <label
+                    key={trait}
+                    style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '13px' }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={undersizedModal.selectedTraits.includes(trait)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setUndersizedModal((prev) => ({
+                            ...prev,
+                            selectedTraits: [...prev.selectedTraits, trait],
+                          }))
+                        } else {
+                          setUndersizedModal((prev) => ({
+                            ...prev,
+                            selectedTraits: prev.selectedTraits.filter((t) => t !== trait),
+                          }))
+                        }
+                      }}
+                    />
+                    <span>{trait}</span>
+                  </label>
+                ))}
+              </div>
+              <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                This will be saved on the player as “Undersized traits”.
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() =>
+              setUndersizedModal((prev) => ({ ...prev, open: false, pendingPlayer: null }))
+            }
+            title="Close"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div
+          style={{
+            marginTop: '10px',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '8px',
+          }}
+        >
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() =>
+              setUndersizedModal((prev) => ({ ...prev, open: false, pendingPlayer: null }))
+            }
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={async () => {
+              const pending = undersizedModal.pendingPlayer
+              if (!pending) return
+              const payload = { ...pending, undersizedTraits: undersizedModal.selectedTraits }
+              const action = undersizedModal.pendingAction
+              setUndersizedModal((prev) => ({ ...prev, open: false, pendingPlayer: null }))
+              try {
+                if (action === 'add') {
+                  const newPlayer = await createPlayer(payload)
+                  setPlayers((prev) => [newPlayer, ...prev])
+                } else if (action === 'edit' && editingPlayerId) {
+                  await updatePlayer(editingPlayerId, payload)
+                  setPlayers((prev) =>
+                    prev.map((p) => (p.id === editingPlayerId ? { ...p, ...payload } : p))
+                  )
+                  setEditingPlayerId(null)
+                  setEditForm(null)
+                  setEditStatusMenuOpenId(null)
+                }
+              } catch (err) {
+                console.error('Undersized modal save error:', err)
+                alert('Failed to save player')
+              }
+            }}
+            disabled={undersizedModal.selectedTraits.length === 0}
+            title={
+              undersizedModal.selectedTraits.length === 0
+                ? 'Select at least one trait to proceed'
+                : 'Save'
+            }
+          >
+            Save Anyway
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="page">
@@ -565,7 +861,7 @@ function PlayerManagement() {
               name="offensePosition"
               value={form.offensePosition}
               onChange={handleChange}
-              placeholder="QB/RB/WR/TE/OL"
+              placeholder="QB/RB/WR (slot)/WR (wideout)/TE/OT/OG"
             />
           </label>
           <label className="field">
@@ -574,7 +870,7 @@ function PlayerManagement() {
               name="defensePosition"
               value={form.defensePosition}
               onChange={handleChange}
-              placeholder="DL/LB/DB"
+              placeholder="DL/LB/CB/S"
             />
           </label>
           <label className="field">
@@ -699,6 +995,64 @@ function PlayerManagement() {
               step="0.01"
             />
           </label>
+          <div style={{ gridColumn: '1 / -1', marginTop: '-6px', fontSize: '12px', color: 'var(--color-text-muted)' }}>
+            Measurables
+          </div>
+          <label className="field">
+            Height (in)
+            <input
+              type="number"
+              name="heightIn"
+              value={form.heightIn}
+              onChange={handleChange}
+              placeholder="e.g. 74"
+              step="0.1"
+            />
+          </label>
+          <label className="field">
+            Weight (lb)
+            <input
+              type="number"
+              name="weightLb"
+              value={form.weightLb}
+              onChange={handleChange}
+              placeholder="e.g. 210"
+              step="0.1"
+            />
+          </label>
+          <label className="field">
+            40 Time
+            <input
+              type="number"
+              name="fortyTime"
+              value={form.fortyTime}
+              onChange={handleChange}
+              placeholder="e.g. 4.55"
+              step="0.01"
+            />
+          </label>
+          <label className="field">
+            Arm Length (in)
+            <input
+              type="number"
+              name="armLengthIn"
+              value={form.armLengthIn}
+              onChange={handleChange}
+              placeholder="e.g. 33.5"
+              step="0.01"
+            />
+          </label>
+          <label className="field">
+            Hand Size (in)
+            <input
+              type="number"
+              name="handSizeIn"
+              value={form.handSizeIn}
+              onChange={handleChange}
+              placeholder="e.g. 9.5"
+              step="0.01"
+            />
+          </label>
           <label className="checkbox" style={{ gridColumn: '1 / -1' }}>
             <input
               type="checkbox"
@@ -730,6 +1084,7 @@ function PlayerManagement() {
             <Plus size={16} />
             Add Player
           </button>
+          {undersizedModal.open && undersizedModal.pendingAction === 'add' && renderUndersizedAlert()}
         </form>
       </section>
 
@@ -994,6 +1349,64 @@ function PlayerManagement() {
                             step="0.01"
                           />
                         </label>
+                        <div style={{ gridColumn: '1 / -1', marginTop: '-6px', fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                          Measurables
+                        </div>
+                        <label className="field">
+                          Height (in)
+                          <input
+                            type="number"
+                            name="heightIn"
+                            value={editForm.heightIn ?? ''}
+                            onChange={handleEditChange}
+                            placeholder="e.g. 74"
+                            step="0.1"
+                          />
+                        </label>
+                        <label className="field">
+                          Weight (lb)
+                          <input
+                            type="number"
+                            name="weightLb"
+                            value={editForm.weightLb ?? ''}
+                            onChange={handleEditChange}
+                            placeholder="e.g. 210"
+                            step="0.1"
+                          />
+                        </label>
+                        <label className="field">
+                          40 Time
+                          <input
+                            type="number"
+                            name="fortyTime"
+                            value={editForm.fortyTime ?? ''}
+                            onChange={handleEditChange}
+                            placeholder="e.g. 4.55"
+                            step="0.01"
+                          />
+                        </label>
+                        <label className="field">
+                          Arm Length (in)
+                          <input
+                            type="number"
+                            name="armLengthIn"
+                            value={editForm.armLengthIn ?? ''}
+                            onChange={handleEditChange}
+                            placeholder="e.g. 33.5"
+                            step="0.01"
+                          />
+                        </label>
+                        <label className="field">
+                          Hand Size (in)
+                          <input
+                            type="number"
+                            name="handSizeIn"
+                            value={editForm.handSizeIn ?? ''}
+                            onChange={handleEditChange}
+                            placeholder="e.g. 9.5"
+                            step="0.01"
+                          />
+                        </label>
                         <label className="checkbox" style={{ gridColumn: '1 / -1' }}>
                           <input
                             type="checkbox"
@@ -1018,6 +1431,12 @@ function PlayerManagement() {
                           Cancel
                         </button>
                       </div>
+                      {undersizedModal.open &&
+                        undersizedModal.pendingAction === 'edit' &&
+                        undersizedModal.pendingPlayer &&
+                        String(undersizedModal.pendingPlayer.id || editingPlayerId) ===
+                          String(player.id) &&
+                        renderUndersizedAlert()}
                     </div>
                   ) : (
                     // View Mode
@@ -1081,7 +1500,7 @@ function PlayerManagement() {
                           </span>
                         ) : null}
                         <span>
-                          {player.position || 'Position TBD'}
+                          {getPrimaryPositionDisplay(player)}
                           {player.offensePosition ? ` · O: ${player.offensePosition}` : ''}
                           {player.defensePosition ? ` · D: ${player.defensePosition}` : ''} ·{' '}
                           {player.school || 'School TBD'}{player.state ? ` (${player.state})` : ''} · {player.gradYear || 'Grad year TBD'}
@@ -1151,6 +1570,7 @@ function PlayerManagement() {
           </>
         )}
       </section>
+
     </div>
   )
 }

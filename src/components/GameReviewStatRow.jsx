@@ -26,8 +26,8 @@ const STAT_TYPES = [
   'Sack Taken',
 ]
 
-const OFFENSE_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'OL', 'ATH']
-const DEFENSE_POSITIONS = ['DL', 'LB', 'DB']
+const OFFENSE_POSITIONS = ['QB', 'RB', 'WR (slot)', 'WR (wideout)', 'TE', 'OT', 'OG', 'ATH']
+const DEFENSE_POSITIONS = ['DL', 'LB', 'CB', 'S']
 
 function getPlayerRoleFlags(player) {
   const offense = (player.offensePosition || player.position || '').toUpperCase()

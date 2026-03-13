@@ -75,6 +75,12 @@ function apiPlayerToApp(player) {
     committedSchool: player.committed_school || '',
     committedDate: player.committed_date || '',
     compositeRating: player.composite_rating || null,
+    heightIn: player.height_in ?? null,
+    weightLb: player.weight_lb ?? null,
+    fortyTime: player.forty_time ?? null,
+    armLengthIn: player.arm_length_in ?? null,
+    handSizeIn: player.hand_size_in ?? null,
+    undersizedTraits: Array.isArray(player.undersized_traits) ? player.undersized_traits : [],
     isJuco: player.is_juco || false,
     isTransferWishlist: player.is_transfer_wishlist || false,
     isLds: player.is_lds || false,
@@ -97,6 +103,11 @@ function apiPlayerToApp(player) {
 function appPlayerToApi(player) {
   const gradYear = player.gradYear ? parseInt(player.gradYear, 10) : null
   const compositeRating = player.compositeRating ? parseFloat(player.compositeRating) : null
+  const heightIn = player.heightIn != null && player.heightIn !== '' ? parseFloat(player.heightIn) : null
+  const weightLb = player.weightLb != null && player.weightLb !== '' ? parseFloat(player.weightLb) : null
+  const fortyTime = player.fortyTime != null && player.fortyTime !== '' ? parseFloat(player.fortyTime) : null
+  const armLengthIn = player.armLengthIn != null && player.armLengthIn !== '' ? parseFloat(player.armLengthIn) : null
+  const handSizeIn = player.handSizeIn != null && player.handSizeIn !== '' ? parseFloat(player.handSizeIn) : null
   return {
     name: player.name,
     position: player.position || null,
@@ -114,6 +125,12 @@ function appPlayerToApi(player) {
     committed_school: player.committedSchool || null,
     committed_date: player.committedDate || null,
     composite_rating: Number.isNaN(compositeRating) ? null : compositeRating,
+    height_in: Number.isNaN(heightIn) ? null : heightIn,
+    weight_lb: Number.isNaN(weightLb) ? null : weightLb,
+    forty_time: Number.isNaN(fortyTime) ? null : fortyTime,
+    arm_length_in: Number.isNaN(armLengthIn) ? null : armLengthIn,
+    hand_size_in: Number.isNaN(handSizeIn) ? null : handSizeIn,
+    undersized_traits: Array.isArray(player.undersizedTraits) ? player.undersizedTraits : null,
     is_juco: player.isJuco ?? false,
     is_transfer_wishlist: player.isTransferWishlist ?? false,
     is_lds: player.isLds ?? null,

@@ -16,7 +16,23 @@ import { assignmentsApi } from '../utils/api'
 import byuLogo from '../assets/byu-logo.png'
 import EmptyState from './EmptyState'
 
-const POSITIONS = ['All', 'QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'DB', 'K', 'P', 'ATH']
+const POSITIONS = [
+  'All',
+  'QB',
+  'RB',
+  'WR (slot)',
+  'WR (wideout)',
+  'TE',
+  'OT',
+  'OG',
+  'DL',
+  'LB',
+  'CB',
+  'S',
+  'K',
+  'P',
+  'ATH',
+]
 
 const PORTAL_STATUSES = [
   '',
@@ -39,6 +55,35 @@ const RECRUITING_STATUSES = [
   { value: 'Signed', label: 'Signed', color: 'status-signed' },
   { value: 'Passed', label: 'Passed', color: 'status-passed' },
 ]
+
+function getPrimaryPositionDisplay(player) {
+  const raw = (player.position || '').toUpperCase().trim()
+  const offense = (player.offensePosition || '').toUpperCase()
+  const defense = (player.defensePosition || '').toUpperCase()
+
+  if (!raw) return 'Position TBD'
+
+  if (raw === 'OL') {
+    if (offense.includes('OT') || offense.includes('TACKLE')) return 'OT'
+    if (offense.includes('OG') || offense.includes('GUARD')) return 'OG'
+    if (offense.includes('C') || offense.includes('CENTER')) return 'OG'
+    return 'OT'
+  }
+
+  if (raw === 'WR') {
+    if (offense.includes('SLOT') || offense.includes('SWR')) return 'WR (slot)'
+    if (offense.includes('WIDE') || offense.includes('WWR')) return 'WR (wideout)'
+    return 'WR (wideout)'
+  }
+
+  if (raw === 'DB') {
+    if (defense.includes('CB') || defense.includes('CORNER')) return 'CB'
+    if (defense.includes('S') || defense.includes('SAFETY')) return 'S'
+    return 'S'
+  }
+
+  return player.position || 'Position TBD'
+}
 
 function PlayerAvatar({ name, url, size = 40 }) {
   if (url) {
@@ -624,7 +669,7 @@ function PlayerBoard() {
       <header className="page-header">
         <div>
           <h2>Prospects</h2>
-          <p>Manage junior college players.</p>
+          <p>Manage JUCO and transfer prospects.</p>
         </div>
         <button className="btn-secondary" onClick={exportPlayers}>
           <Download size={16} />
@@ -633,7 +678,7 @@ function PlayerBoard() {
       </header>
 
       <section className="panel">
-        <h3>Add JUCO Player</h3>
+        <h3>Add Prospect</h3>
         <form className="form-grid" onSubmit={handleAddPlayer}>
           <label className="field">
             Name
@@ -644,6 +689,13 @@ function PlayerBoard() {
               placeholder="Player name"
             />
             {formErrors.name && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.name}</span>}
+          </label>
+          <label className="field">
+            Type
+            <select name="playerType" value={form.playerType} onChange={handleChange}>
+              <option value="JUCO">JUCO</option>
+              <option value="Transfer">Transfer (D1)</option>
+            </select>
           </label>
           <label className="field">
             Position
@@ -660,7 +712,7 @@ function PlayerBoard() {
               name="offensePosition"
               value={form.offensePosition}
               onChange={handleChange}
-              placeholder="QB/RB/WR/TE/OL"
+              placeholder="QB/RB/WR (slot)/WR (wideout)/TE/OT/OG"
             />
           </label>
           <label className="field">
@@ -669,7 +721,7 @@ function PlayerBoard() {
               name="defensePosition"
               value={form.defensePosition}
               onChange={handleChange}
-              placeholder="DL/LB/DB"
+              placeholder="DL/LB/CB/S"
             />
           </label>
           <label className="field">
@@ -683,12 +735,15 @@ function PlayerBoard() {
           </label>
           <label className="field">
             Current School Level
-            <input
-              name="currentSchoolLevel"
-              value={form.currentSchoolLevel}
-              onChange={handleChange}
-              placeholder="e.g. JUCO D1, JUCO D2"
-            />
+            <select name="currentSchoolLevel" value={form.currentSchoolLevel} onChange={handleChange}>
+              <option value="">— Select —</option>
+              <option value="JUCO D1">JUCO D1</option>
+              <option value="JUCO D2">JUCO D2</option>
+              <option value="P4">P4 (Power 4)</option>
+              <option value="G5">G5 (Group of 5)</option>
+              <option value="FCS">FCS</option>
+              <option value="NAIA">NAIA</option>
+            </select>
           </label>
           <label className="field">
             State (Current School)
@@ -983,7 +1038,7 @@ function PlayerBoard() {
 
       <section className="panel">
         <h3 style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          JUCO Players ({filteredPlayers.length})
+          Prospects ({filteredPlayers.length})
           {(() => {
             const rated = filteredPlayers.filter((p) => p.compositeRating != null && !isNaN(parseFloat(p.compositeRating)))
             if (rated.length === 0) return null
@@ -1111,8 +1166,8 @@ function PlayerBoard() {
         )}
         {filteredPlayers.length === 0 ? (
           players.length === 0
-            ? <EmptyState icon={UserPlus} title="No JUCO players yet" subtitle="Add one to start your JUCO watchlist." />
-            : <EmptyState icon={SearchX} title="No JUCO players match your filters" subtitle="Try adjusting your search or filters." />
+            ? <EmptyState icon={UserPlus} title="No prospects yet" subtitle="Add a JUCO or transfer player to get started." />
+            : <EmptyState icon={SearchX} title="No prospects match your filters" subtitle="Try adjusting your search or filters." />
         ) : (
           <>
             <ul className="list">
@@ -1497,7 +1552,7 @@ function PlayerBoard() {
                           </span>
                         ) : null}
                         <span>
-                          {player.position || 'Position TBD'}
+                          {getPrimaryPositionDisplay(player)}
                           {player.offensePosition ? ` · O: ${player.offensePosition}` : ''}
                           {player.defensePosition ? ` · D: ${player.defensePosition}` : ''} ·{' '}
                           {player.school || 'School TBD'}{player.state ? ` (${player.state})` : ''}{player.homeState || player.home_state ? ` · From: ${player.homeState || player.home_state}` : ''} · {player.gradYear || 'Grad year TBD'}

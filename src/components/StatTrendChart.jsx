@@ -25,13 +25,13 @@ const CHART_COLORS = {
 function StatTrendChart({ gameBreakdown, playerPosition }) {
   // Determine which stats to show based on position
   const isOffensivePlayer = useMemo(() => {
-    const offensePositions = ['QB', 'RB', 'WR', 'TE', 'OL', 'ATH']
+    const offensePositions = ['QB', 'RB', 'WR (SLOT)', 'WR (WIDEOUT)', 'WR', 'TE', 'OT', 'OG', 'OL', 'ATH']
     const pos = (playerPosition || '').toUpperCase()
     return offensePositions.some((p) => pos.includes(p)) || !pos
   }, [playerPosition])
 
   const isDefensivePlayer = useMemo(() => {
-    const defensePositions = ['DL', 'LB', 'DB', 'DE', 'DT', 'CB', 'S', 'EDGE']
+    const defensePositions = ['DL', 'LB', 'CB', 'S', 'DB', 'DE', 'DT', 'EDGE']
     const pos = (playerPosition || '').toUpperCase()
     return defensePositions.some((p) => pos.includes(p))
   }, [playerPosition])

@@ -22,7 +22,7 @@ export const passwordResetLimiter = rateLimit({
 // General API limiter
 export const apiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute
+  max: 500, // 500 requests per minute (internal tool, small team)
   message: { error: 'Too many requests. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,

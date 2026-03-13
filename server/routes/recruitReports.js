@@ -81,9 +81,9 @@ function hasEligibleRecruitStatus(statuses) {
 // Sync players with recruiting_status into recruits table (HS players only, exclude JUCO and Transfer)
 async function syncPlayersToRecruits() {
   const playersResult = await pool.query(
-    `SELECT id, name, school, state, grad_year, position, offense_position, defense_position, recruiting_status, committed_school
-     FROM players 
-     WHERE recruiting_status IS NOT NULL
+    `SELECT id, name, school, state, grad_year, position, offense_position, defense_position, recruiting_statuses, committed_school
+     FROM players
+     WHERE recruiting_statuses IS NOT NULL AND array_length(recruiting_statuses, 1) > 0
        AND (is_juco = false OR is_juco IS NULL)
        AND (is_transfer_wishlist = false OR is_transfer_wishlist IS NULL)`
   )
@@ -98,19 +98,19 @@ async function syncPlayersToRecruits() {
   for (const player of playersResult.rows) {
     const position = player.position || player.offense_position || player.defense_position || null
     const sideOfBall = position ? deriveSideOfBall(position) : null
-    const status = deriveRecruitStatus(player.recruiting_status)
-    const eligible = hasEligibleRecruitStatus(player.recruiting_status)
+    const status = deriveRecruitStatus(player.recruiting_statuses)
+    const eligible = hasEligibleRecruitStatus(player.recruiting_statuses)
     const assignedCoach = position ? (COACH_MAP[position] || null) : null
 
     if (syncedMap.has(player.id)) {
       // Update existing recruit with latest status and committed_school
       await pool.query(
-        `UPDATE recruits SET status = $1, committed_school = $2 WHERE id = $3`,
-        [status, player.committed_school || null, syncedMap.get(player.id)]
+        `UPDATE recruits SET statuses = $1, committed_school = $2 WHERE id = $3`,
+        [status ? [status] : [], player.committed_school || null, syncedMap.get(player.id)]
       )
     } else if (eligible) {
       await pool.query(
-        `INSERT INTO recruits (name, school, state, class_year, position, side_of_ball, status, assigned_coach, player_id, committed_school)
+        `INSERT INTO recruits (name, school, state, class_year, position, side_of_ball, statuses, assigned_coach, player_id, committed_school)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           player.name,
@@ -119,7 +119,7 @@ async function syncPlayersToRecruits() {
           player.grad_year,
           position,
           sideOfBall,
-          status,
+          status ? [status] : [],
           assignedCoach,
           player.id,
           player.committed_school || null,
@@ -398,12 +398,12 @@ router.get('/', async (req, res, next) => {
               rr.stats,
               rr.other_stats,
               rr.notes as report_notes,
-              COALESCE(ARRAY[p.recruiting_status], ARRAY[r.status]) as status_list
+              COALESCE(p.recruiting_statuses, r.statuses) as status_list
        FROM recruits r
        LEFT JOIN players p ON p.id = r.player_id
        LEFT JOIN recruit_weekly_reports rr
          ON rr.recruit_id = r.id AND rr.week_start_date = $1
-       WHERE r.status IN ('COMMITTED', 'OFFERED', 'COMMITTED ELSEWHERE', 'SIGNED')
+       WHERE r.statuses && ARRAY['COMMITTED', 'OFFERED', 'COMMITTED ELSEWHERE', 'SIGNED']
          AND (p.id IS NULL OR (p.is_juco = false AND p.is_transfer_wishlist = false))
        ORDER BY r.side_of_ball, r.position, r.name`,
       [week_start_date]

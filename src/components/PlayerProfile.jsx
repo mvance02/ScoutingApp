@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Pencil, BarChart3, Calendar, MapPin, GraduationCap, Shield, Target, Trophy, Users, TrendingUp, CheckCircle, XCircle } from 'lucide-react'
 import { loadPlayers, loadGames, loadAllStats } from '../utils/storage'
 import { gradesApi, playersApi } from '../utils/api'
+import { BIG12_STARTER_AVG_BY_POSITION, normalizeBenchmarkPosition } from '../utils/benchmarks'
 import StatTrendChart from './StatTrendChart'
 import PlayerComments from './PlayerComments'
 import PlayerVisits from './PlayerVisits'
@@ -172,21 +173,48 @@ function PlayerProfile() {
   if (loading) {
     return (
       <div className="page">
-        <div style={{ background: 'var(--color-bg-muted)', borderRadius: '12px', padding: '32px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '24px' }}>
+        <div
+          style={{
+            background: 'var(--color-bg-muted)',
+            borderRadius: '12px',
+            padding: '32px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '24px',
+          }}
+        >
           <div className="skeleton-block skeleton-avatar" />
           <div style={{ flex: 1 }}>
-            <div className="skeleton-block" style={{ height: '28px', width: '220px', marginBottom: '10px' }} />
-            <div className="skeleton-block" style={{ height: '16px', width: '160px', marginBottom: '8px' }} />
+            <div
+              className="skeleton-block"
+              style={{ height: '28px', width: '220px', marginBottom: '10px' }}
+            />
+            <div
+              className="skeleton-block"
+              style={{ height: '16px', width: '160px', marginBottom: '8px' }}
+            />
             <div className="skeleton-block" style={{ height: '16px', width: '280px' }} />
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-          {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="skeleton-block" style={{ height: '32px', width: '80px', borderRadius: '16px' }} />
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div
+              key={i}
+              className="skeleton-block"
+              style={{ height: '32px', width: '80px', borderRadius: '16px' }}
+            />
           ))}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
-          {[1, 2, 3, 4].map(i => (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '12px',
+            marginBottom: '20px',
+          }}
+        >
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className="skeleton-block skeleton-card" />
           ))}
         </div>
@@ -199,16 +227,75 @@ function PlayerProfile() {
     return (
       <div className="page" style={{ textAlign: 'center', padding: '80px 0' }}>
         <h2>Player Not Found</h2>
-        <p style={{ marginTop: '8px', color: 'var(--color-text-muted)' }}>This player does not exist or has been removed.</p>
-        <Link to="/players" className="btn-primary" style={{ display: 'inline-flex', marginTop: '16px' }}>
+        <p style={{ marginTop: '8px', color: 'var(--color-text-muted)' }}>
+          This player does not exist or has been removed.
+        </p>
+        <Link
+          to="/players"
+          className="btn-primary"
+          style={{ display: 'inline-flex', marginTop: '16px' }}
+        >
           <ArrowLeft size={16} /> Back to Players
         </Link>
       </div>
     )
   }
 
-  const positions = [player.position, player.offensePosition, player.defensePosition].filter(Boolean).join(' / ')
-  const playerPosition = player.position || player.offensePosition || player.defensePosition
+  const positions = [
+    player.position,
+    player.offensePosition,
+    player.defensePosition,
+  ]
+    .filter(Boolean)
+    .join(' / ')
+  const playerPosition =
+    player.position || player.offensePosition || player.defensePosition
+  const big12Comparison = (() => {
+    const normalized = normalizeBenchmarkPosition(playerPosition)
+    const avg = normalized ? BIG12_STARTER_AVG_BY_POSITION[normalized] : null
+    if (!avg) return { normalized, avg: null, ready: false }
+
+    const heightIn = player.heightIn != null && !isNaN(Number(player.heightIn)) ? Number(player.heightIn) : null
+    const weightLb = player.weightLb != null && !isNaN(Number(player.weightLb)) ? Number(player.weightLb) : null
+    if (heightIn == null || weightLb == null) return { normalized, avg, ready: false }
+
+    const heightDiff = heightIn - Number(avg.height_in)
+    const weightDiff = weightLb - Number(avg.weight_lb)
+
+    const fmtSigned = (n, digits = 1) => {
+      if (n == null || Number.isNaN(n)) return '—'
+      const v = Number(n)
+      const sign = v > 0 ? '+' : v < 0 ? '−' : ''
+      return `${sign}${Math.abs(v).toFixed(digits)}`
+    }
+
+    const phrase = (diff, unit, negativeWord, positiveWord) => {
+      if (diff == null || Number.isNaN(diff)) return '—'
+      if (diff === 0) return `matches (${unit})`
+      const abs = Math.abs(diff)
+      const word = diff < 0 ? negativeWord : positiveWord
+      if (unit === 'lb') return `${abs.toFixed(0)} lbs ${word}`
+      return `${abs.toFixed(1)}" ${word}`
+    }
+
+    return {
+      normalized,
+      avg,
+      ready: true,
+      heightIn,
+      weightLb,
+      heightDiff,
+      weightDiff,
+      heightDiffLabel: `${fmtSigned(heightDiff, 1)}"`,
+      weightDiffLabel: `${fmtSigned(weightDiff, 0)} lbs`,
+      summaryLabel: `${phrase(
+        heightDiff,
+        'in',
+        'shorter',
+        'taller'
+      )} / ${phrase(weightDiff, 'lb', 'lighter', 'heavier')}`,
+    }
+  })()
 
   return (
     <div className="page" style={{ padding: 0, maxWidth: '100%' }}>
@@ -259,6 +346,113 @@ function PlayerProfile() {
                 {player.committedDate ? ` on ${String(player.committedDate).split('T')[0]}` : ''}
               </div>
             )}
+            <div
+              style={{
+                marginTop: '16px',
+                background: 'rgba(15, 23, 42, 0.7)',
+                border: '1px solid rgba(148, 163, 184, 0.6)',
+                borderRadius: '14px',
+                padding: '14px 16px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: '16px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ minWidth: '240px' }}>
+                <div
+                  style={{
+                    fontWeight: 800,
+                    letterSpacing: '0.2px',
+                    fontSize: '14px',
+                    color: '#e5e7eb',
+                  }}
+                >
+                  Big 12 Comparison
+                </div>
+                <div
+                  style={{
+                    marginTop: '4px',
+                    color: '#cbd5f5',
+                    fontSize: '13px',
+                  }}
+                >
+                  {big12Comparison.avg ? (
+                    <>
+                      vs Big 12 starter avg ({big12Comparison.normalized || '—'})
+                      {big12Comparison.ready ? `: ${big12Comparison.summaryLabel}` : ''}
+                    </>
+                  ) : (
+                    <>No Big 12 baseline for this position.</>
+                  )}
+                </div>
+              </div>
+
+              {big12Comparison.avg && (
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <div
+                    style={{
+                      background: 'rgba(15, 23, 42, 0.85)',
+                      border: '1px solid rgba(148, 163, 184, 0.8)',
+                      borderRadius: '12px',
+                      padding: '10px 14px',
+                      minWidth: '160px',
+                    }}
+                  >
+                    <div style={{ fontSize: '11px', textTransform: 'uppercase', color: '#9ca3af' }}>
+                      Height
+                    </div>
+                    <div style={{ fontWeight: 800, marginTop: '4px', color: '#f9fafb' }}>
+                      {big12Comparison.ready ? `${big12Comparison.heightIn.toFixed(1)}"` : '—'}
+                      <span
+                        style={{
+                          marginLeft: '8px',
+                          fontSize: '12px',
+                          color: '#cbd5f5',
+                          fontWeight: 600,
+                        }}
+                      >
+                        avg {Number(big12Comparison.avg.height_in).toFixed(1)}"
+                      </span>
+                    </div>
+                    <div style={{ marginTop: '4px', fontSize: '12px', color: '#e5e7eb' }}>
+                      {big12Comparison.ready ? `${big12Comparison.heightDiffLabel} vs avg` : 'Add height to compare'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: 'rgba(15, 23, 42, 0.85)',
+                      border: '1px solid rgba(148, 163, 184, 0.8)',
+                      borderRadius: '12px',
+                      padding: '10px 14px',
+                      minWidth: '160px',
+                    }}
+                  >
+                    <div style={{ fontSize: '11px', textTransform: 'uppercase', color: '#9ca3af' }}>
+                      Weight
+                    </div>
+                    <div style={{ fontWeight: 800, marginTop: '4px', color: '#f9fafb' }}>
+                      {big12Comparison.ready ? `${big12Comparison.weightLb.toFixed(0)} lbs` : '—'}
+                      <span
+                        style={{
+                          marginLeft: '8px',
+                          fontSize: '12px',
+                          color: '#cbd5f5',
+                          fontWeight: 600,
+                        }}
+                      >
+                        avg {Number(big12Comparison.avg.weight_lb).toFixed(0)} lbs
+                      </span>
+                    </div>
+                    <div style={{ marginTop: '4px', fontSize: '12px', color: '#e5e7eb' }}>
+                      {big12Comparison.ready ? `${big12Comparison.weightDiffLabel} vs avg` : 'Add weight to compare'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div className="profile-hero-actions">
             <Link to="/players" className="profile-hero-btn">

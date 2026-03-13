@@ -2,13 +2,35 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie, ReferenceLine,
+  PieChart, Pie, ReferenceLine, LineChart, Line, Legend, ReferenceArea,
 } from 'recharts'
 import { loadPlayers } from '../utils/storage'
 import { playersApi, recruitsApi, performancesApi, recruitingGoalsApi } from '../utils/api'
 import { exportAnalyticsDashboardPDF } from '../utils/exportUtils'
+import {
+  BYU_TEAM_COMPOSITE_BY_YEAR,
+  BIG12_STARTER_AVG_BY_POSITION,
+  BYU_NFL_AVG_BY_POSITION,
+  normalizeBenchmarkPosition,
+} from '../utils/benchmarks'
 
-const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'DE', 'LB', 'C', 'S', 'K', 'P']
+const POSITION_ORDER = [
+  'QB',
+  'RB',
+  'WR (slot)',
+  'WR (wideout)',
+  'TE',
+  'OT',
+  'OG',
+  'DL',
+  'DE',
+  'LB',
+  'C',
+  'CB',
+  'S',
+  'K',
+  'P',
+]
 
 const BYU_BLUE = '#002E5D'
 const BYU_BLUE_LIGHT = '#0062B8'
@@ -28,47 +50,102 @@ function getStatusColor(status) {
   return STATUS_COLORS[status?.toUpperCase()] || '#6b7280'
 }
 
+const STATUS_PRIORITY = [
+  'SIGNED',
+  'COMMITTED ELSEWHERE',
+  'COMMITTED',
+  'OFFERED',
+  'EVALUATED',
+  'RECRUIT',
+  'PASSED',
+  'WATCHING',
+]
+
+function getRecruitStatusList(recruit) {
+  const raw =
+    recruit.status_list ||
+    recruit.statuses ||
+    recruit.recruiting_statuses ||
+    (recruit.status ? [recruit.status] : [])
+
+  const list = Array.isArray(raw) ? raw : [raw]
+
+  return list
+    .map((s) => String(s || '').trim())
+    .filter(Boolean)
+}
+
+function getPrimaryRecruitStatus(recruit) {
+  const list = getRecruitStatusList(recruit)
+  if (list.length === 0) return 'UNKNOWN'
+
+  const upper = list.map((s) => s.toUpperCase())
+  for (const status of STATUS_PRIORITY) {
+    if (upper.includes(status)) return status
+  }
+
+  return upper[0]
+}
+
 // Demo data for when real player data is empty
 const DEMO_COMMITTED_RATINGS = [
-  { position: 'QB', avgRating: 91.50, count: 2, maxRating: 93.00, minRating: 90.00 },
-  { position: 'RB', avgRating: 87.33, count: 3, maxRating: 89.50, minRating: 85.00 },
-  { position: 'WR', avgRating: 89.00, count: 3, maxRating: 92.00, minRating: 86.00 },
-  { position: 'TE', avgRating: 84.50, count: 2, maxRating: 86.00, minRating: 83.00 },
-  { position: 'OL', avgRating: 86.67, count: 3, maxRating: 88.50, minRating: 84.00 },
-  { position: 'DL', avgRating: 88.00, count: 2, maxRating: 90.00, minRating: 86.00 },
-  { position: 'DE', avgRating: 90.50, count: 2, maxRating: 93.00, minRating: 88.00 },
-  { position: 'LB', avgRating: 87.00, count: 3, maxRating: 89.00, minRating: 85.00 },
-  { position: 'CB', avgRating: 85.50, count: 2, maxRating: 87.00, minRating: 84.00 },
-  { position: 'S', avgRating: 86.00, count: 2, maxRating: 88.00, minRating: 84.00 },
+  { position: 'QB', avgRating: 91.5, count: 2, maxRating: 93.0, minRating: 90.0 },
+  { position: 'RB', avgRating: 87.33, count: 3, maxRating: 89.5, minRating: 85.0 },
+  { position: 'WR (slot)', avgRating: 88.5, count: 2, maxRating: 90.0, minRating: 87.0 },
+  { position: 'WR (wideout)', avgRating: 89.5, count: 2, maxRating: 92.0, minRating: 87.0 },
+  { position: 'TE', avgRating: 84.5, count: 2, maxRating: 86.0, minRating: 83.0 },
+  { position: 'OT', avgRating: 87.5, count: 2, maxRating: 89.0, minRating: 86.0 },
+  { position: 'OG', avgRating: 86.0, count: 1, maxRating: 86.0, minRating: 86.0 },
+  { position: 'DL', avgRating: 88.0, count: 2, maxRating: 90.0, minRating: 86.0 },
+  { position: 'DE', avgRating: 90.5, count: 2, maxRating: 93.0, minRating: 88.0 },
+  { position: 'LB', avgRating: 87.0, count: 3, maxRating: 89.0, minRating: 85.0 },
+  { position: 'CB', avgRating: 85.5, count: 2, maxRating: 87.0, minRating: 84.0 },
+  { position: 'S', avgRating: 86.0, count: 2, maxRating: 88.0, minRating: 84.0 },
 ]
 
 const DEMO_TIME_TO_COMMIT = { avg: 47, min: 12, max: 98, median: 42, count: 8 }
 
 const DEMO_COMMIT_TO_OFFER = { offered: 24, committed: 14, rate: 58.3, pending: 10 }
 
+// Demo: Offer-to-commit rate by composite rating tier (81-84, 84-87, etc.)
+const DEMO_OFFER_TO_COMMIT_BY_TIER = [
+  { tier: '81-84', offered: 8, committed: 5, rate: 62.5 },
+  { tier: '84-87', offered: 12, committed: 7, rate: 58.3 },
+  { tier: '87-90', offered: 10, committed: 6, rate: 60 },
+  { tier: '90-93', offered: 6, committed: 4, rate: 66.7 },
+  { tier: '93-96', offered: 4, committed: 3, rate: 75 },
+  { tier: '96-100', offered: 2, committed: 2, rate: 100 },
+]
+
 const DEMO_TOP_PLAYERS = {
   QB: [
     { id: 'd1', name: 'Marcus Johnson', school: 'Lincoln HS', rating: 93.00, statuses: ['Committed'] },
     { id: 'd2', name: 'Tyler Brooks', school: 'Central HS', rating: 90.00, statuses: ['Committed'] },
   ],
-  WR: [
+  'WR (slot)': [
     { id: 'd3', name: 'DeAndre Williams', school: 'Westside Prep', rating: 92.00, statuses: ['Committed'] },
     { id: 'd4', name: 'Jamal Carter', school: 'East Academy', rating: 89.50, statuses: ['Offered'] },
     { id: 'd5', name: 'Chris Martinez', school: 'South HS', rating: 86.00, statuses: ['Committed'] },
+  ],
+  'WR (wideout)': [
+    { id: 'd6', name: 'Jamal Carter', school: 'East Academy', rating: 92.0, statuses: ['Committed'] },
+    { id: 'd7', name: 'Chris Martinez', school: 'South HS', rating: 89.5, statuses: ['Offered'] },
   ],
   DE: [
     { id: 'd6', name: 'Aidan Thompson', school: 'North Prep', rating: 93.00, statuses: ['Signed'] },
     { id: 'd7', name: 'Jordan Davis', school: 'Valley HS', rating: 88.00, statuses: ['Offered'] },
   ],
   RB: [
-    { id: 'd8', name: 'Kamari Lewis', school: 'Heritage HS', rating: 89.50, statuses: ['Committed'] },
-    { id: 'd9', name: 'Devon Jackson', school: 'Park Academy', rating: 87.00, statuses: ['Committed'] },
-    { id: 'd10', name: 'Isaiah Moore', school: 'Ridge HS', rating: 85.00, statuses: ['Offered'] },
+    { id: 'd8', name: 'Kamari Lewis', school: 'Heritage HS', rating: 89.5, statuses: ['Committed'] },
+    { id: 'd9', name: 'Devon Jackson', school: 'Park Academy', rating: 87.0, statuses: ['Committed'] },
+    { id: 'd10', name: 'Isaiah Moore', school: 'Ridge HS', rating: 85.0, statuses: ['Offered'] },
   ],
-  OL: [
-    { id: 'd11', name: 'Ethan Walker', school: 'Summit HS', rating: 88.50, statuses: ['Committed'] },
-    { id: 'd12', name: 'Logan Harris', school: 'Crest Prep', rating: 86.00, statuses: ['Signed'] },
-    { id: 'd13', name: 'Noah Clark', school: 'Bay HS', rating: 84.00, statuses: ['Offered'] },
+  OT: [
+    { id: 'd11', name: 'Ethan Walker', school: 'Summit HS', rating: 88.5, statuses: ['Committed'] },
+    { id: 'd12', name: 'Logan Harris', school: 'Crest Prep', rating: 86.0, statuses: ['Signed'] },
+  ],
+  OG: [
+    { id: 'd13', name: 'Noah Clark', school: 'Bay HS', rating: 84.0, statuses: ['Offered'] },
   ],
   LB: [
     { id: 'd14', name: 'Malik Robinson', school: 'Eagle HS', rating: 89.00, statuses: ['Committed'] },
@@ -105,6 +182,16 @@ function isCommitted(player) {
   const hasCommitted = statuses.some(s => s === 'committed' || s === 'signed')
   const hasCommittedElsewhere = statuses.some(s => s.includes('committed elsewhere') || s.includes('elsewhere'))
   return hasCommitted && !hasCommittedElsewhere
+}
+
+// Helper to check if player has committed elsewhere (case-insensitive)
+function hasCommittedElsewhere(player) {
+  const statuses = getStatuses(player).map((s) => s.toLowerCase())
+  return statuses.some(
+    (s) =>
+      s === 'committed elsewhere' ||
+      (s.includes('committed') && s.includes('elsewhere'))
+  )
 }
 
 // Helper to check if player is offered (case-insensitive)
@@ -184,6 +271,11 @@ function Analytics() {
   const [editingGoalValue, setEditingGoalValue] = useState('')
   const [editingCompositeGoal, setEditingCompositeGoal] = useState(false)
   const [editingCompositeValue, setEditingCompositeValue] = useState('')
+  const [selectedBoardStatus, setSelectedBoardStatus] = useState(null)
+  const [selectedCompositePosition, setSelectedCompositePosition] = useState(null)
+  const [selectedRatingTier, setSelectedRatingTier] = useState(null)
+  const [selectedCompetitorSchool, setSelectedCompetitorSchool] = useState(null)
+  const [benchmarkPosition, setBenchmarkPosition] = useState('QB')
 
   useEffect(() => {
     async function fetchData() {
@@ -286,10 +378,20 @@ function Analytics() {
   const boardSummary = useMemo(() => {
     const statusMap = {}
     filteredRecruits.forEach((r) => {
-      const status = (r.status || 'UNKNOWN').toUpperCase()
+      const status = getPrimaryRecruitStatus(r)
       statusMap[status] = (statusMap[status] || 0) + 1
     })
-    const priority = { COMMITTED: 1, SIGNED: 2, OFFERED: 3, 'COMMITTED ELSEWHERE': 4, PASSED: 5, WATCHING: 6 }
+    const priority = {
+      SIGNED: 1,
+      COMMITTED: 2,
+      'COMMITTED ELSEWHERE': 3,
+      OFFERED: 4,
+      RECRUIT: 5,
+      EVALUATED: 6,
+      PASSED: 7,
+      WATCHING: 8,
+      UNKNOWN: 99,
+    }
     return Object.entries(statusMap)
       .map(([status, count]) => ({ status, count }))
       .sort((a, b) => (priority[a.status] || 99) - (priority[b.status] || 99))
@@ -304,7 +406,7 @@ function Analytics() {
       if (!pos) return
       if (!posMap[pos]) posMap[pos] = { total: 0, statuses: {} }
       posMap[pos].total += 1
-      const status = (r.status || 'UNKNOWN').toUpperCase()
+      const status = getPrimaryRecruitStatus(r)
       posMap[pos].statuses[status] = (posMap[pos].statuses[status] || 0) + 1
     })
 
@@ -426,6 +528,51 @@ function Analytics() {
     { name: 'Committed', value: commitToOffer.committed },
     { name: 'Pending', value: commitToOffer.pending },
   ]
+
+  // 5. Offer-to-commit rate by composite rating tier (81-84, 84-87, etc.)
+  const RATING_TIERS = [
+    { min: 81, max: 84, label: '81-84' },
+    { min: 84, max: 87, label: '84-87' },
+    { min: 87, max: 90, label: '87-90' },
+    { min: 90, max: 93, label: '90-93' },
+    { min: 93, max: 96, label: '93-96' },
+    { min: 96, max: 100.01, label: '96-100' },
+  ]
+
+  const offerToCommitByTierReal = useMemo(() => {
+    return RATING_TIERS.map(({ min, max, label }) => {
+      const inTier = filteredPlayers.filter((p) => {
+        const rating = p.compositeRating ?? p.composite_rating
+        if (rating == null) return false
+        const r = Number(rating)
+        return r >= min && r < max
+      })
+
+      // Treat anyone we've offered, committed to BYU, or who committed elsewhere
+      // as part of the \"offered pool\" for this tier.
+      const offeredPool = inTier.filter(
+        (p) => isOffered(p) || isCommitted(p) || hasCommittedElsewhere(p)
+      )
+      const committed = offeredPool.filter(isCommitted)
+
+      if (offeredPool.length === 0) {
+        return { tier: label, offered: 0, committed: 0, rate: 0 }
+      }
+
+      const rawRate = (committed.length / offeredPool.length) * 100
+      const rate = parseFloat(Math.min(100, rawRate).toFixed(1))
+
+      return {
+        tier: label,
+        offered: offeredPool.length,
+        committed: committed.length,
+        rate,
+      }
+    }).filter((row) => row.offered > 0)
+  }, [filteredPlayers])
+
+  const isTierDemo = offerToCommitByTierReal.length === 0
+  const offerToCommitByTier = isTierDemo ? DEMO_OFFER_TO_COMMIT_BY_TIER : offerToCommitByTierReal
 
   // 4. Top Player Composite Rating by Position
   const topPlayersByPositionReal = useMemo(() => {
@@ -607,10 +754,10 @@ function Analytics() {
   const kpiStats = useMemo(() => {
     const totalRecruits = filteredRecruits.length
     const committed = filteredRecruits.filter(r => {
-      const s = (r.status || '').toUpperCase()
+      const s = getPrimaryRecruitStatus(r)
       return s === 'COMMITTED' || s === 'SIGNED'
     }).length
-    const offered = filteredRecruits.filter(r => (r.status || '').toUpperCase() === 'OFFERED').length
+    const offered = filteredRecruits.filter(r => getPrimaryRecruitStatus(r) === 'OFFERED').length
     const commitRate = totalRecruits > 0 ? parseFloat(((committed / totalRecruits) * 100).toFixed(1)) : 0
     return { totalRecruits, committed, offered, commitRate }
   }, [filteredRecruits])
@@ -687,6 +834,118 @@ function Analytics() {
           ))}
         </div>
       )}
+
+      {/* Big 12 Benchmarking */}
+      <section className="panel" style={{
+        padding: '24px',
+        marginBottom: '24px',
+        borderRadius: '12px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+      }}>
+        <div style={{ marginBottom: '16px' }}>
+          <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 600, color: BYU_BLUE }}>
+            Big 12 Benchmarking
+          </h3>
+          <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
+            BYU recruiting profile trend + Big 12/NFL prototypes by position
+          </p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '24px' }}>
+          {/* Trend line */}
+          <div>
+            <div style={{ marginBottom: '8px', fontSize: '13px', color: '#6b7280' }}>
+              BYU Team Avg Composite Rating (2016–2025)
+            </div>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={BYU_TEAM_COMPOSITE_BY_YEAR} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
+                <XAxis dataKey="year" tick={{ fontSize: 11, fill: '#6b7280' }} />
+                <YAxis
+                  domain={[80, 90]}
+                  tick={{ fontSize: 11, fill: '#6b7280' }}
+                  label={{ value: 'Composite', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#6b7280', fontSize: 12 } }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                {/* Shade Big 12 era */}
+                <ReferenceArea x1={2023} x2={2025} fill={BYU_BLUE_TINT} fillOpacity={0.7} />
+                <Line type="monotone" dataKey="avgComposite" name="BYU Avg Composite" stroke="#4169E1" strokeWidth={3} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+            <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280' }}>
+              Shaded region shows Big 12 era (2023+).
+            </div>
+          </div>
+
+          {/* Archetype cards */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
+              <div style={{ fontSize: '13px', color: '#6b7280' }}>Position prototypes</div>
+              <select
+                value={benchmarkPosition}
+                onChange={(e) => setBenchmarkPosition(e.target.value)}
+                style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-card)' }}
+              >
+                {[
+                  'QB',
+                  'RB',
+                  'WR (slot)',
+                  'WR (wideout)',
+                  'TE',
+                  'OT',
+                  'OG',
+                  'DE',
+                  'DT',
+                  'LB',
+                  'CB',
+                  'S',
+                ].map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+
+            {(() => {
+              const normPos = normalizeBenchmarkPosition(benchmarkPosition) || benchmarkPosition
+              const big12 = BIG12_STARTER_AVG_BY_POSITION[normPos]
+              const nfl = BYU_NFL_AVG_BY_POSITION[normPos] || null
+              return (
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div style={{ padding: '14px', borderRadius: '12px', border: '1px solid var(--color-border)', background: 'var(--color-bg-secondary)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <strong style={{ color: BYU_BLUE }}>Big 12 {normPos} Prototype</strong>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>Avg starter (2025)</span>
+                    </div>
+                    <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
+                      <div><span style={{ color: '#6b7280' }}>Height</span><div style={{ fontWeight: 700 }}>{big12?.height_in ?? '—'} in</div></div>
+                      <div><span style={{ color: '#6b7280' }}>Weight</span><div style={{ fontWeight: 700 }}>{big12?.weight_lb ?? '—'} lb</div></div>
+                      <div style={{ gridColumn: '1 / -1', color: '#6b7280', fontSize: '12px' }}>
+                        Composite rating not available for Big 12 starters in this dataset.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '14px', borderRadius: '12px', border: '1px solid var(--color-border)', background: 'var(--color-bg-secondary)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <strong style={{ color: BYU_BLUE }}>NFL {normPos} Prototype</strong>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>BYU NFL averages</span>
+                    </div>
+                    <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
+                      <div><span style={{ color: '#6b7280' }}>Composite</span><div style={{ fontWeight: 700 }}>{nfl?.composite != null ? (nfl.composite * 100).toFixed(2) : '—'}</div></div>
+                      <div><span style={{ color: '#6b7280' }}>40</span><div style={{ fontWeight: 700 }}>{typeof nfl?.forty === 'number' ? nfl.forty.toFixed(2) : '—'}</div></div>
+                      <div><span style={{ color: '#6b7280' }}>Height</span><div style={{ fontWeight: 700 }}>{typeof nfl?.height_in === 'number' ? nfl.height_in.toFixed(1) : '—'} in</div></div>
+                      <div><span style={{ color: '#6b7280' }}>Weight</span><div style={{ fontWeight: 700 }}>{typeof nfl?.weight_lb === 'number' ? nfl.weight_lb.toFixed(0) : '—'} lb</div></div>
+                      <div><span style={{ color: '#6b7280' }}>Arm</span><div style={{ fontWeight: 700 }}>{typeof nfl?.arm === 'number' ? nfl.arm.toFixed(2) : '—'} in</div></div>
+                      <div><span style={{ color: '#6b7280' }}>Hand</span><div style={{ fontWeight: 700 }}>{typeof nfl?.hand === 'number' ? nfl.hand.toFixed(2) : '—'} in</div></div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      </section>
 
       {/* KPI Summary Row */}
       <div className="analytics-kpi-grid">
@@ -845,28 +1104,49 @@ function Analytics() {
               No recruits on the board yet
             </p>
           ) : (
-            <ResponsiveContainer width="100%" height={boardSummary.length * 40 + 20}>
-              <BarChart data={boardSummary} layout="vertical" margin={{ top: 5, right: 30, left: 5, bottom: 5 }} barCategoryGap="25%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.4} horizontal={false} />
-                <YAxis
-                  dataKey="status"
-                  type="category"
-                  tick={{ fontSize: 11, fill: '#6b7280' }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={120}
-                />
-                <XAxis
-                  type="number"
-                  allowDecimals={false}
-                  tick={{ fontSize: 10, fill: '#6b7280' }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="count" name="Recruits" radius={[0, 6, 6, 0]} maxBarSize={28} fill="#4169E1" />
-              </BarChart>
-            </ResponsiveContainer>
+            <>
+              <ResponsiveContainer width="100%" height={boardSummary.length * 40 + 20}>
+                <BarChart data={boardSummary} layout="vertical" margin={{ top: 5, right: 30, left: 5, bottom: 5 }} barCategoryGap="25%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.4} horizontal={false} />
+                  <YAxis
+                    dataKey="status"
+                    type="category"
+                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={120}
+                  />
+                  <XAxis
+                    type="number"
+                    allowDecimals={false}
+                    tick={{ fontSize: 10, fill: '#6b7280' }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="count" name="Recruits" radius={[0, 6, 6, 0]} maxBarSize={28}>
+                    {boardSummary.map((entry) => (
+                      <Cell
+                        key={entry.status}
+                        cursor="pointer"
+                        fill={selectedBoardStatus === entry.status ? BYU_BLUE_LIGHT : '#4169E1'}
+                        onClick={() =>
+                          setSelectedBoardStatus(
+                            selectedBoardStatus === entry.status ? null : entry.status
+                          )
+                        }
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              {selectedBoardStatus && (
+                <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280' }}>
+                  Focus: {selectedBoardStatus} &middot;{' '}
+                  {boardSummary.find((b) => b.status === selectedBoardStatus)?.count ?? 0} recruits
+                </div>
+              )}
+            </>
           )}
         </section>
 
@@ -1045,15 +1325,37 @@ function Analytics() {
                 y={positionGoals.compositeRatingGoal ?? COMPOSITE_GOAL_DEFAULT}
                 stroke="#dc2626"
                 strokeDasharray="6 4"
-                label={{ value: `Goal: ${positionGoals.compositeRatingGoal ?? COMPOSITE_GOAL_DEFAULT}`, position: 'insideTopRight', fill: '#dc2626', fontSize: 11, fontWeight: 600, dy: -14 }}
               />
-              <Bar dataKey="avgRating" name="Avg Rating" radius={[6, 6, 0, 0]} fill="#4169E1" />
+              <Bar dataKey="avgRating" name="Avg Rating" radius={[6, 6, 0, 0]}>
+                {committedRatingByPosition.map((row) => (
+                  <Cell
+                    key={row.position}
+                    cursor="pointer"
+                    fill={selectedCompositePosition === row.position ? BYU_BLUE_LIGHT : '#4169E1'}
+                    onClick={() =>
+                      setSelectedCompositePosition(
+                        selectedCompositePosition === row.position ? null : row.position
+                      )
+                    }
+                  />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
           <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
             {committedRatingByPosition.reduce((sum, p) => sum + p.count, 0)} committed players
             {isRatingDemo && ' (sample)'}
           </div>
+          {selectedCompositePosition && (
+            <div style={{ marginTop: '4px', fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
+              Focus: {selectedCompositePosition} &middot;{' '}
+              {
+                committedRatingByPosition.find((p) => p.position === selectedCompositePosition)
+                  ?.avgRating
+              }{' '}
+              avg rating
+            </div>
+          )}
         </section>
 
         {/* Commit-to-Offer Rate - Donut Chart */}
@@ -1130,6 +1432,178 @@ function Analytics() {
         </section>
       </div>
 
+      {/* Offer-to-Commit Rate by Rating Tier + Schools Taking Our Offers (side by side) */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '24px',
+        marginBottom: '24px',
+      }}>
+      <section className="panel" style={{
+        padding: '24px',
+        borderRadius: '12px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+      }}>
+        <div style={{ marginBottom: '12px' }}>
+          <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600, color: BYU_BLUE }}>
+            Offer-to-Commit Rate by Rating Tier
+          </h3>
+          <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
+            % of offered players who committed, by composite rating bucket
+            {isTierDemo && <span style={{ marginLeft: '8px', fontStyle: 'italic', color: '#f59e0b' }}>(Sample Data)</span>}
+          </p>
+        </div>
+        {offerToCommitByTier.length === 0 ? (
+          <p className="empty-state" style={{ padding: '40px', textAlign: 'center' }}>
+            No offered players with composite ratings yet
+          </p>
+        ) : (
+          <>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart
+                data={offerToCommitByTier}
+                margin={{ top: 10, right: 20, left: 10, bottom: 40 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
+                <XAxis
+                  dataKey="tier"
+                  tick={{ fontSize: 11, fill: '#6b7280' }}
+                  label={{ value: 'Composite Rating', position: 'insideBottom', offset: -8, style: { fill: '#6b7280', fontSize: 12 } }}
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fontSize: 11, fill: '#6b7280' }}
+                  tickFormatter={(v) => `${v}%`}
+                  label={{
+                    value: 'Offer-to-Commit Rate',
+                    angle: -90,
+                    position: 'insideLeft',
+                    style: { textAnchor: 'middle', fill: '#6b7280', fontSize: 12 },
+                  }}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null
+                    const row = payload[0]?.payload
+                    if (!row) return null
+                    return (
+                      <div style={{
+                        background: 'var(--color-bg-card)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: '8px',
+                        padding: '12px 16px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        minWidth: '140px',
+                      }}>
+                        <p style={{ margin: '0 0 6px 0', fontWeight: 700, fontSize: '14px', color: 'var(--color-text)' }}>{row.tier}</p>
+                        <p style={{ margin: '2px 0', fontSize: '13px', color: 'var(--color-text-secondary)' }}>Offered: <strong>{row.offered}</strong></p>
+                        <p style={{ margin: '2px 0', fontSize: '13px', color: 'var(--color-text-secondary)' }}>Committed: <strong>{row.committed}</strong></p>
+                        <p style={{ margin: '2px 0', fontSize: '13px', color: 'var(--color-text-secondary)' }}>Rate: <strong>{row.rate}%</strong></p>
+                      </div>
+                    )
+                  }}
+                />
+                <Bar dataKey="rate" name="Rate (%)" radius={[6, 6, 0, 0]}>
+                  {offerToCommitByTier.map((row) => (
+                    <Cell
+                      key={row.tier}
+                      cursor="pointer"
+                      fill={selectedRatingTier === row.tier ? BYU_BLUE_LIGHT : '#4169E1'}
+                      onClick={() =>
+                        setSelectedRatingTier(
+                          selectedRatingTier === row.tier ? null : row.tier
+                        )
+                      }
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
+              {offerToCommitByTier.reduce((sum, d) => sum + d.offered, 0)} total offered across tiers
+            </div>
+            {selectedRatingTier && (
+              <div style={{ marginTop: '4px', fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
+                {(() => {
+                  const row = offerToCommitByTier.find((t) => t.tier === selectedRatingTier)
+                  if (!row) return null
+                  return (
+                    <>
+                      Focus: {row.tier} &middot; {row.committed}/{row.offered} committed ({row.rate}%)
+                    </>
+                  )
+                })()}
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* Schools Taking Our Offers */}
+      <section className="panel" style={{
+        padding: '24px',
+        borderRadius: '12px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+      }}>
+        <div style={{ marginBottom: '12px' }}>
+          <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600, color: BYU_BLUE }}>
+            Schools Taking Our Offers
+          </h3>
+          <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
+            HS players who committed elsewhere after being offered
+          </p>
+        </div>
+        {competitorSchools.length === 0 ? (
+          <p className="empty-state" style={{ padding: '40px', textAlign: 'center' }}>
+            No players committed elsewhere yet
+          </p>
+        ) : (
+          <div style={{ width: '100%', height: '280px', minHeight: '280px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={competitorSchools} layout="vertical" margin={{ top: 5, right: 30, left: 5, bottom: 5 }} barCategoryGap="25%">
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.4} horizontal={false} />
+                <YAxis
+                  dataKey="school"
+                  type="category"
+                  tick={{ fontSize: 11, fill: '#6b7280' }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={120}
+                />
+                <XAxis
+                  type="number"
+                  allowDecimals={false}
+                  tick={{ fontSize: 10, fill: '#6b7280' }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="count" name="Players" radius={[0, 6, 6, 0]} maxBarSize={28}>
+                    {competitorSchools.map((row) => (
+                      <Cell
+                        key={row.school}
+                        cursor="pointer"
+                        fill={selectedCompetitorSchool === row.school ? '#fbbf24' : '#f97316'}
+                        onClick={() =>
+                          setSelectedCompetitorSchool(
+                            selectedCompetitorSchool === row.school ? null : row.school
+                          )
+                        }
+                      />
+                    ))}
+                  </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        {selectedCompetitorSchool && (
+          <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280' }}>
+            Focus: {selectedCompetitorSchool}
+          </div>
+        )}
+      </section>
+      </div>
+
       {/* Position Needs */}
       {positionNeeds.length > 0 && (
         <section className="panel" style={{
@@ -1154,12 +1628,24 @@ function Analytics() {
               const isEditing = editingGoalPos === pos.position
 
               return (
-                <div key={pos.position} style={{
-                  padding: '12px',
-                  background: 'var(--color-bg-secondary)',
-                  borderRadius: '10px',
-                  border: '1px solid var(--color-border)',
-                }}>
+                <div
+                  key={pos.position}
+                  onClick={() =>
+                    setSelectedCompositePosition(
+                      selectedCompositePosition === pos.position ? null : pos.position
+                    )
+                  }
+                  style={{
+                    padding: '12px',
+                    background: 'var(--color-bg-secondary)',
+                    borderRadius: '10px',
+                    border:
+                      selectedCompositePosition === pos.position
+                        ? `2px solid ${BYU_BLUE_LIGHT}`
+                        : '1px solid var(--color-border)',
+                    cursor: 'pointer',
+                  }}
+                >
                   <div style={{
                     fontSize: '14px',
                     fontWeight: 700,
@@ -1243,56 +1729,6 @@ function Analytics() {
           </div>
         </section>
       )}
-
-      {/* Competitor Schools */}
-      <div style={{
-        marginBottom: '24px',
-      }}>
-        <section className="panel" style={{
-          padding: '24px',
-          borderRadius: '12px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-        }}>
-          <div style={{ marginBottom: '12px' }}>
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600, color: BYU_BLUE }}>
-              Schools Taking Our Offers
-            </h3>
-            <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
-              HS players who committed elsewhere after being offered
-            </p>
-          </div>
-          {competitorSchools.length === 0 ? (
-            <p className="empty-state" style={{ padding: '40px', textAlign: 'center' }}>
-              No players committed elsewhere yet
-            </p>
-          ) : (
-            <div style={{ width: '100%', height: '400px', minHeight: '400px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={competitorSchools} layout="vertical" margin={{ top: 5, right: 30, left: 5, bottom: 5 }} barCategoryGap="25%">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.4} horizontal={false} />
-                  <YAxis
-                    dataKey="school"
-                    type="category"
-                    tick={{ fontSize: 11, fill: '#6b7280' }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={120}
-                  />
-                  <XAxis
-                    type="number"
-                    allowDecimals={false}
-                    tick={{ fontSize: 10, fill: '#6b7280' }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="count" name="Players" fill="#f97316" radius={[0, 6, 6, 0]} maxBarSize={28} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </section>
-      </div>
 
       {/* Top Players by Position */}
       <section className="panel" style={{

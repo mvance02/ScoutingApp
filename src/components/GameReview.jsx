@@ -71,9 +71,25 @@ const POSITION_STAT_PRESETS = {
   ATH: ['Rush', 'Rush TD', 'Reception', 'Rec TD', 'Return', 'TD'],
 }
 
-const OFFENSE_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'OL', 'ATH']
-const DEFENSE_POSITIONS = ['DL', 'LB', 'DB']
-const POSITIONS = ['All', 'QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'DB', 'K', 'P', 'ATH']
+const OFFENSE_POSITIONS = ['QB', 'RB', 'WR (slot)', 'WR (wideout)', 'TE', 'OT', 'OG', 'ATH']
+const DEFENSE_POSITIONS = ['DL', 'LB', 'CB', 'S']
+const POSITIONS = [
+  'All',
+  'QB',
+  'RB',
+  'WR (slot)',
+  'WR (wideout)',
+  'TE',
+  'OT',
+  'OG',
+  'DL',
+  'LB',
+  'CB',
+  'S',
+  'K',
+  'P',
+  'ATH',
+]
 
 const DEFAULT_SHORTCUTS = {
   r: 'Rush',

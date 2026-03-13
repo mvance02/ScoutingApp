@@ -15,54 +15,147 @@ async function seed() {
     const scoutId = users.find(u => u.name === 'Braden Speyer')?.id || users[1]?.id || 2
     const scout2Id = users[2]?.id || 3
 
-    // Get existing players (first 20 for main demo data)
-    const players = (await client.query('SELECT id, name, position, offense_position, defense_position, school, state FROM players ORDER BY id LIMIT 20')).rows
+    // Get existing players (first 20 for main demo data) + full list for measurables
+    const players = (
+      await client.query(
+        'SELECT id, name, position, offense_position, defense_position, school, state FROM players ORDER BY id LIMIT 20'
+      )
+    ).rows
     if (players.length === 0) throw new Error('No players found')
 
-    console.log(`Found ${players.length} players, ${users.length} users`)
+    const allPlayers = (
+      await client.query(
+        `SELECT id, name, position, offense_position, defense_position,
+                is_juco, is_transfer_wishlist,
+                composite_rating, height_in, weight_lb, arm_length_in, hand_size_in
+         FROM players
+         ORDER BY id`
+      )
+    ).rows
+
+    console.log(`Found ${allPlayers.length} total players, using first ${players.length} for game/demo data`)
+    console.log(`Users found: ${users.length}`)
+
+    // ============================================
+    // 0. ENSURE MEASURABLES FOR ALL PLAYERS
+    // ============================================
+    function primaryPos(row) {
+      const raw =
+        (row.position || row.offense_position || row.defense_position || '').toUpperCase()
+      if (!raw) return 'ATH'
+      if (['OT', 'OG', 'C'].includes(raw)) return 'OL'
+      if (raw === 'DL') return 'DT'
+      if (raw === 'S' || raw === 'FS' || raw === 'SS') return 'DB'
+      if (raw === 'EDGE') return 'DE'
+      return raw
+    }
+
+    function randRange(min, max, decimals = 1) {
+      const v = min + Math.random() * (max - min)
+      return Number(v.toFixed(decimals))
+    }
+
+    const MEASURABLE_PRESETS = {
+      QB: { h: [72, 75], w: [195, 220], arm: [31, 33.5], hand: [9, 10.25] },
+      RB: { h: [69, 72], w: [190, 215], arm: [30, 32.5], hand: [8.9, 9.8] },
+      WR: { h: [71, 75], w: [180, 205], arm: [31, 33.5], hand: [9, 10.1] },
+      TE: { h: [75, 78], w: [230, 255], arm: [32, 34], hand: [9.25, 10.25] },
+      OL: { h: [76, 79], w: [290, 325], arm: [32.5, 35], hand: [9.75, 10.75] },
+      DT: { h: [74, 77], w: [280, 310], arm: [32, 34], hand: [9.4, 10.2] },
+      DE: { h: [74, 77], w: [245, 270], arm: [32.5, 34.5], hand: [9.2, 10] },
+      LB: { h: [72, 75], w: [215, 240], arm: [31.5, 33.5], hand: [9, 9.9] },
+      DB: { h: [70, 73], w: [180, 200], arm: [30.5, 32.5], hand: [8.9, 9.7] },
+      ATH: { h: [71, 75], w: [185, 215], arm: [31, 33.5], hand: [9, 10] },
+    }
+
+    for (const p of allPlayers) {
+      const pos = primaryPos(p)
+      const preset = MEASURABLE_PRESETS[pos] || MEASURABLE_PRESETS.ATH
+
+      const isJuco = p.is_juco === true
+      const isTransfer = p.is_transfer_wishlist === true
+
+      // Slightly bump ranges for older players
+      const ratingMin = isTransfer ? 83 : isJuco ? 82 : 79
+      const ratingMax = isTransfer ? 96 : isJuco ? 94 : 92
+
+      const newComposite =
+        p.composite_rating == null ? randRange(ratingMin, ratingMax, 2) : null
+      const newHeight = p.height_in == null ? randRange(preset.h[0], preset.h[1], 1) : null
+      const newWeight = p.weight_lb == null ? randRange(preset.w[0], preset.w[1], 0) : null
+      const newArm =
+        p.arm_length_in == null ? randRange(preset.arm[0], preset.arm[1], 2) : null
+      const newHand =
+        p.hand_size_in == null ? randRange(preset.hand[0], preset.hand[1], 2) : null
+
+      if (
+        newComposite == null &&
+        newHeight == null &&
+        newWeight == null &&
+        newArm == null &&
+        newHand == null
+      ) {
+        continue
+      }
+
+      await client.query(
+        `UPDATE players
+         SET composite_rating = COALESCE($1, composite_rating),
+             height_in = COALESCE($2, height_in),
+             weight_lb = COALESCE($3, weight_lb),
+             arm_length_in = COALESCE($4, arm_length_in),
+             hand_size_in = COALESCE($5, hand_size_in)
+         WHERE id = $6`,
+        [newComposite, newHeight, newWeight, newArm, newHand, p.id]
+      )
+    }
+
+    console.log('Ensured composite rating + measurables for all players')
 
     // ============================================
     // 1. UPDATE PLAYER RECRUITING STATUSES (make them varied)
     // ============================================
     const statusUpdates = [
-      { id: players[0].id, status: 'Offered', rating: 89.25 },         // Semisi Uluave - DE
-      { id: players[1].id, status: 'Evaluating', rating: 85.55 },      // Bode Sparrow - WR
+      { id: players[0].id, status: 'Offered', rating: 97.2 },          // 96-100 tier
+      { id: players[1].id, status: 'Evaluating', rating: 85.55 },     // Bode Sparrow - WR
       { id: players[2].id, status: 'Committed', rating: 88.85 },       // Marcus Johnson - QB
       { id: players[3].id, status: 'Interested', rating: 86.15 },      // DeShawn Williams - RB
-      { id: players[4].id, status: 'Offered', rating: 84.95 },         // Tyler Richardson - RB
-      { id: players[5].id, status: 'Signed', rating: 92.35 },          // Jaylen Carter - WR
-      { id: players[6].id, status: 'Evaluating', rating: 88.65 },      // Chris Thompson - WR
+      { id: players[4].id, status: 'Offered', rating: 82.5 },          // 81-84 tier
+      { id: players[5].id, status: 'Signed', rating: 94.8 },           // 93-96 tier
+      { id: players[6].id, status: 'Committed', rating: 83.2 },       // 81-84 tier
       { id: players[7].id, status: 'Watching', rating: 87.25 },        // Antonio Davis - WR
       { id: players[8].id, status: 'Offered', rating: 88.15 },         // Brandon Mitchell - TE
-      { id: players[9].id, status: 'Interested', rating: 86.65 },      // Malik Anderson - OL
+      { id: players[9].id, status: 'Offered', rating: 84.2 },          // 84-87 tier
       { id: players[10].id, status: 'Committed Elsewhere', rating: 86.85 }, // Darius Brown - DL
-      { id: players[11].id, status: 'Evaluating', rating: 86.05 },     // Terrell Jackson - DL
+      { id: players[11].id, status: 'Evaluating', rating: 86.05 },    // Terrell Jackson - DL
       { id: players[12].id, status: 'Offered', rating: 87.95 },        // Jamal White - EDGE
-      { id: players[13].id, status: 'Interested', rating: 86.55 },     // Marcus Lee - LB
+      { id: players[13].id, status: 'Committed', rating: 85.1 },       // 84-87 tier
       { id: players[14].id, status: 'Evaluating', rating: 87.45 },     // DeAndre Harris - LB
-      { id: players[15].id, status: 'Watching', rating: 85.25 },       // Kevin Robinson - LB
-      { id: players[16].id, status: 'Offered', rating: 86.25 },        // Tyrone Smith - CB
-      { id: players[17].id, status: 'Interested', rating: 85.65 },     // Jordan Taylor - CB
-      { id: players[18].id, status: 'Evaluating', rating: 86.95 },     // Andre Wilson - S
+      { id: players[15].id, status: 'Watching', rating: 85.25 },        // Kevin Robinson - LB
+      { id: players[16].id, status: 'Offered', rating: 86.25 },       // Tyrone Smith - CB
+      { id: players[17].id, status: 'Offered', rating: 91.5 },        // 90-93 tier
+      { id: players[18].id, status: 'Evaluating', rating: 86.95 },    // Andre Wilson - S
       { id: players[19].id, status: 'Watching', rating: 85.35 },       // Michael Green - S
     ]
 
     for (const upd of statusUpdates) {
       await client.query(
-        `UPDATE players SET recruiting_status = $1, composite_rating = $2 WHERE id = $3`,
+        `UPDATE players SET recruiting_statuses = ARRAY[$1]::text[], composite_rating = $2 WHERE id = $3`,
         [upd.status, upd.rating, upd.id]
       )
     }
-    // Set committed school for Darius Brown
+    // Set committed school for Darius Brown (Committed Elsewhere)
     await client.query(
       `UPDATE players SET committed_school = 'Oregon' WHERE id = $1`,
       [players[10].id]
     )
-    // Set committed school for Marcus Johnson (committed to BYU)
-    await client.query(
-      `UPDATE players SET committed_school = 'BYU' WHERE id = $1`,
-      [players[2].id]
-    )
+    // Set committed school for BYU commits (Marcus Johnson, Chris Thompson, Marcus Lee, Jaylen Carter)
+    for (const idx of [2, 5, 6, 13]) {
+      await client.query(
+        `UPDATE players SET committed_school = 'BYU' WHERE id = $1`,
+        [players[idx].id]
+      )
+    }
 
     console.log('Updated player statuses')
 
@@ -374,8 +467,8 @@ async function seed() {
 
     for (const sh of statusHistoryData) {
       await client.query(
-        `INSERT INTO player_status_history (player_id, old_status, new_status, notes, changed_by, changed_at)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
+        `INSERT INTO player_status_history (player_id, old_statuses, new_statuses, notes, changed_by, created_at)
+         VALUES ($1, ARRAY[$2]::text[], ARRAY[$3]::text[], $4, $5, $6)`,
         [players[sh.pid].id, sh.old, sh.new, sh.notes, adminId, sh.date + 'T12:00:00Z']
       )
     }

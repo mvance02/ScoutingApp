@@ -6,7 +6,23 @@ import { loadPlayers, loadGames } from '../utils/storage'
 
 function ScoutAssignments() {
   const navigate = useNavigate()
-  const POSITION_GROUPS = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'DE', 'LB', 'C', 'S', 'K', 'P']
+  const POSITION_GROUPS = [
+    'QB',
+    'RB',
+    'WR (slot)',
+    'WR (wideout)',
+    'TE',
+    'OT',
+    'OG',
+    'DL',
+    'DE',
+    'LB',
+    'C',
+    'CB',
+    'S',
+    'K',
+    'P',
+  ]
   const [assignments, setAssignments] = useState([])
   const [scouts, setScouts] = useState([])
   const [players, setPlayers] = useState([])

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom'
-import { Home, Users, Plus, Moon, Sun, HelpCircle, Settings, FileText, UserCheck, Bell, ClipboardList, BarChart3, MessageSquare, X } from 'lucide-react'
+import { Home, Users, Plus, Moon, Sun, HelpCircle, Settings, FileText, UserCheck, Bell, ClipboardList, BarChart3, MessageSquare, X, Calendar } from 'lucide-react'
 import Dashboard from './components/Dashboard'
 import GameReview from './components/GameReview'
 import PlayerManagement from './components/PlayerManagement'
@@ -21,6 +21,7 @@ import Notifications from './components/Notifications'
 import Analytics from './components/Analytics'
 import PlayerProfile from './components/PlayerProfile'
 import KeyboardShortcutsSettings from './components/KeyboardShortcutsSettings'
+import VisitCalendar from './components/VisitCalendar'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -145,10 +146,12 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/review/:gameId?" element={<GameReview />} />
             <Route path="/players" element={<PlayerManagement />} />
+            <Route path="/players/:playerId" element={<PlayerProfile />} />
             <Route path="/player/:playerId" element={<PlayerProfile />} />
             <Route path="/player/:playerId/stats" element={<PlayerStats />} />
             <Route path="/recruits-report" element={<RecruitsReport />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/visits-calendar" element={<VisitCalendar />} />
             <Route path="/prospects" element={<PlayerBoard />} />
             <Route path="/juco-players" element={<Navigate to="/prospects" replace />} />
             <Route path="/transfer-players" element={<Navigate to="/prospects" replace />} />
@@ -302,6 +305,14 @@ function NavBar({ user, darkMode, onToggleDarkMode, onLogout, onShowShortcuts, o
             </Link>
           </>
         ) : null}
+        <Link
+          to="/visits-calendar"
+          className={activePath === '/visits-calendar' ? 'active' : ''}
+          onClick={() => setActivePath('/visits-calendar')}
+        >
+          <Calendar size={20} />
+          Visit Calendar
+        </Link>
         <button
           className="btn-primary"
           onClick={async () => {

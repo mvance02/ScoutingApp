@@ -33,6 +33,12 @@ CREATE TABLE players (
   committed_school VARCHAR(255),
   committed_date DATE,
   composite_rating DECIMAL(4,2),
+  height_in DECIMAL(6,2),
+  weight_lb DECIMAL(6,2),
+  forty_time DECIMAL(6,3),
+  arm_length_in DECIMAL(6,2),
+  hand_size_in DECIMAL(6,2),
+  undersized_traits TEXT[] DEFAULT ARRAY[]::text[],
   profile_picture_url TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

@@ -3,9 +3,25 @@ import { Plus, Save, Filter, FileText, Mail, Search } from 'lucide-react'
 import { recruitReportsApi, recruitNotesApi, emailApi } from '../utils/api'
 import { exportRecruitsReportPDF, exportRecruitsReportPDFBlob, exportRecruitsReportPDFByCoach } from '../utils/exportUtils'
 
-const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'DE', 'LB', 'C', 'S', 'K', 'P']
+const POSITION_ORDER = [
+  'QB',
+  'RB',
+  'WR (slot)',
+  'WR (wideout)',
+  'TE',
+  'OT',
+  'OG',
+  'DL',
+  'DE',
+  'LB',
+  'C',
+  'CB',
+  'S',
+  'K',
+  'P',
+]
 const SIDE_OF_BALL = {
-  OFFENSE: ['QB', 'RB', 'WR', 'TE', 'OL'],
+  OFFENSE: ['QB', 'RB', 'WR (slot)', 'WR (wideout)', 'TE', 'OT', 'OG'],
   DEFENSE: ['DL', 'DE', 'LB', 'C', 'S'],
   SPECIAL: ['K', 'P'],
 }

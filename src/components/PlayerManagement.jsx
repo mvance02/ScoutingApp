@@ -167,6 +167,7 @@ function PlayerManagement() {
     pendingPlayer: null,
     selectedTraits: [],
   })
+  const [showAddForm, setShowAddForm] = useState(false)
   const photoInputRef = useRef(null)
   const [form, setForm] = useState({
     name: '',
@@ -658,6 +659,27 @@ function PlayerManagement() {
     return statusObj?.color || 'status-watching'
   }
 
+  const getAccentClass = (status) => {
+    const map = {
+      'Watching': 'pb-accent-watching',
+      'Evaluating': 'pb-accent-evaluating',
+      'Interested': 'pb-accent-interested',
+      'Offered': 'pb-accent-offered',
+      'Committed': 'pb-accent-committed',
+      'Committed Elsewhere': 'pb-accent-elsewhere',
+      'Signed': 'pb-accent-signed',
+      'Passed': 'pb-accent-passed',
+    }
+    return map[status] || 'pb-accent-default'
+  }
+
+  const getRatingClass = (rating) => {
+    const r = parseFloat(rating)
+    if (r >= 88) return 'high'
+    if (r >= 84) return 'mid'
+    return 'low'
+  }
+
   const renderUndersizedAlert = () => {
     if (!undersizedModal.open) return null
     return (
@@ -804,738 +826,438 @@ function PlayerManagement() {
 
   if (loading) {
     return (
-      <div className="page">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div className="page pb-page">
+        <div className="pb-header">
           <div>
-            <div className="skeleton-block skeleton-title" />
-            <div className="skeleton-block skeleton-subtitle" />
+            <span className="pb-eyebrow">BYU Football · Recruiting</span>
+            <h1 className="pb-title">HS Players</h1>
           </div>
-          <div className="skeleton-block skeleton-btn" />
         </div>
-        <div className="skeleton-block skeleton-panel-sm" />
-        {[1, 2, 3, 4, 5, 6].map(i => (
-          <div key={i} className="skeleton-block skeleton-row" />
-        ))}
+        <div style={{ padding: '24px' }}>
+          <div className="skeleton-block skeleton-panel-sm" style={{ marginBottom: 16 }} />
+          {[1,2,3,4,5,6].map(i => <div key={i} className="skeleton-block skeleton-row" style={{ marginBottom: 8 }} />)}
+        </div>
       </div>
     )
   }
 
-  return (
-    <div className="page">
-      <header className="page-header">
-        <div>
-          <h2>Player Management</h2>
-          <p>Keep your Saturday watchlist organized and ready for review.</p>
-        </div>
-        <button className="btn-secondary" onClick={exportPlayers}>
-          <Download size={16} />
-          Export Players
-        </button>
-      </header>
+  const ratedPlayers = filteredPlayers.filter(p => p.compositeRating != null && !isNaN(parseFloat(p.compositeRating)))
+  const avgComposite = ratedPlayers.length > 0
+    ? (ratedPlayers.reduce((s, p) => s + parseFloat(p.compositeRating), 0) / ratedPlayers.length).toFixed(2)
+    : null
+  const flaggedCount = filteredPlayers.filter(p => p.flagged).length
 
-      <section className="panel">
-        <h3>Add Flagged Player</h3>
-        <form className="form-grid" onSubmit={handleAddPlayer}>
-          <label className="field">
-            Name
-            <input
-              name="name"
-              value={form.name}
-              onChange={handleChange}
-              placeholder="Player name"
-            />
-            {formErrors.name && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.name}</span>}
-          </label>
-          <label className="field">
-            Position
-            <input
-              name="position"
-              value={form.position}
-              onChange={handleChange}
-              placeholder="Primary position"
-            />
-          </label>
-          <label className="field">
-            Offense Position
-            <input
-              name="offensePosition"
-              value={form.offensePosition}
-              onChange={handleChange}
-              placeholder="QB/RB/WR (slot)/WR (wideout)/TE/OT/OG"
-            />
-          </label>
-          <label className="field">
-            Defense Position
-            <input
-              name="defensePosition"
-              value={form.defensePosition}
-              onChange={handleChange}
-              placeholder="DL/LB/CB/S"
-            />
-          </label>
-          <label className="field">
-            School
-            <input
-              name="school"
-              value={form.school}
-              onChange={handleChange}
-              placeholder="School name"
-            />
-          </label>
-          <label className="field">
-            State
-            <input
-              name="state"
-              value={form.state}
-              onChange={handleChange}
-              placeholder="UT, AZ, HI..."
-            />
-          </label>
-          <label className="field">
-            Grad Year
-            <input
-              name="gradYear"
-              value={form.gradYear}
-              onChange={handleChange}
-              placeholder="2026"
-            />
-          </label>
-          <div className="field">
-            Pipeline Statuses
-            <div className="status-filter">
-              <button
-                type="button"
-                className={`btn-ghost status-filter-trigger${statusMenuOpen ? ' active' : ''}`}
-                onClick={() => setStatusMenuOpen((prev) => !prev)}
-              >
-                Select statuses
-                {form.recruitingStatuses.length > 0 ? ` (${form.recruitingStatuses.length})` : ''}
-              </button>
-              {statusMenuOpen ? (
-                <div className="status-filter-menu">
-                  {RECRUITING_STATUSES.map((status) => (
-                    <label key={status.value} className="status-filter-option">
-                      <input
-                        type="checkbox"
-                        checked={form.recruitingStatuses.includes(status.value)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            updateFormStatuses([...form.recruitingStatuses, status.value])
-                          } else {
-                            updateFormStatuses(form.recruitingStatuses.filter((item) => item !== status.value))
-                          }
-                        }}
-                      />
-                      <span>{status.label}</span>
-                    </label>
-                  ))}
-                </div>
-              ) : null}
+  return (
+    <div className="page pb-page">
+
+      {/* ── HEADER ─────────────────────────────────────────────── */}
+      <div className="pb-header">
+        <div>
+          <span className="pb-eyebrow">BYU Football · Recruiting</span>
+          <h1 className="pb-title">HS Players</h1>
+        </div>
+        <div className="pb-header-actions">
+          <button className="pb-export-btn" onClick={exportPlayers}>
+            <Download size={14} /> Export
+          </button>
+        </div>
+      </div>
+
+      {/* ── FILTER STRIP ───────────────────────────────────────── */}
+      <div className="pb-filter-strip">
+        <div className="pb-search-wrap">
+          <Search size={13} className="pb-search-icon" />
+          <input
+            className="pb-search-input"
+            type="text"
+            placeholder="Search name or school…"
+            value={searchQuery}
+            onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1) }}
+          />
+        </div>
+        <select className="pb-filter-select" value={positionFilter} onChange={e => { setPositionFilter(e.target.value); setCurrentPage(1) }}>
+          {POSITIONS.map(pos => <option key={pos} value={pos}>{pos === 'All' ? 'All Positions' : pos}</option>)}
+        </select>
+        <select className="pb-filter-select" value={recruitingStatusFilter} onChange={e => { setRecruitingStatusFilter(e.target.value); setCurrentPage(1) }}>
+          <option value="">All Statuses</option>
+          {RECRUITING_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+        <select className="pb-filter-select" value={sideFilter} onChange={e => { setSideFilter(e.target.value); setCurrentPage(1) }}>
+          <option value="All">All Sides</option>
+          <option value="Offense">Offense</option>
+          <option value="Defense">Defense</option>
+        </select>
+        <input
+          className="pb-filter-select"
+          type="text"
+          placeholder="State"
+          value={stateFilter}
+          onChange={e => { setStateFilter(e.target.value); setCurrentPage(1) }}
+          style={{ width: 72 }}
+        />
+        <input
+          className="pb-filter-select"
+          type="text"
+          placeholder="Year"
+          value={gradYearFilter}
+          onChange={e => { setGradYearFilter(e.target.value); setCurrentPage(1) }}
+          style={{ width: 64 }}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input
+            className="pb-filter-select"
+            type="number"
+            placeholder="Min ★"
+            value={compositeRatingMin}
+            onChange={e => { setCompositeRatingMin(e.target.value); setCurrentPage(1) }}
+            style={{ width: 72 }}
+            min="0" max="100" step="0.01"
+          />
+          <span style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>–</span>
+          <input
+            className="pb-filter-select"
+            type="number"
+            placeholder="Max ★"
+            value={compositeRatingMax}
+            onChange={e => { setCompositeRatingMax(e.target.value); setCurrentPage(1) }}
+            style={{ width: 72 }}
+            min="0" max="100" step="0.01"
+          />
+        </div>
+        <label className="pb-flag-check">
+          <input type="checkbox" checked={flaggedOnly} onChange={e => { setFlaggedOnly(e.target.checked); setCurrentPage(1) }} />
+          <span>Flagged</span>
+        </label>
+      </div>
+
+      {/* ── STATS BAR ──────────────────────────────────────────── */}
+      <div className="pb-stats-bar">
+        <span className="pb-stat"><strong>{filteredPlayers.length}</strong> players</span>
+        {avgComposite && <span className="pb-stat"><strong>{avgComposite}</strong> avg composite</span>}
+        {flaggedCount > 0 && <span className="pb-stat"><strong>{flaggedCount}</strong> flagged</span>}
+      </div>
+
+      {/* ── ADD PLAYER ACCORDION ────────────────────────────────── */}
+      <div className="pb-add-toggle">
+        <button
+          className="pb-add-toggle-btn"
+          onClick={() => setShowAddForm(v => !v)}
+        >
+          <Plus size={15} />
+          {showAddForm ? 'Hide Form' : 'Add HS Player'}
+          <span className="pb-add-chevron" style={{ transform: showAddForm ? 'rotate(180deg)' : 'none' }}>▾</span>
+        </button>
+        {showAddForm && (
+          <form className="pb-add-form form-grid" onSubmit={handleAddPlayer}>
+            <label className="field">
+              Name *
+              <input name="name" value={form.name} onChange={handleChange} placeholder="Player name" />
+              {formErrors.name && <span style={{ color: '#ef4444', fontSize: 12, marginTop: 2 }}>{formErrors.name}</span>}
+            </label>
+            <label className="field">
+              Position
+              <input name="position" value={form.position} onChange={handleChange} placeholder="Primary position" />
+            </label>
+            <label className="field">
+              Offense Pos
+              <input name="offensePosition" value={form.offensePosition} onChange={handleChange} placeholder="QB/RB/WR (slot)/OT…" />
+            </label>
+            <label className="field">
+              Defense Pos
+              <input name="defensePosition" value={form.defensePosition} onChange={handleChange} placeholder="DL/LB/CB/S" />
+            </label>
+            <label className="field">
+              School
+              <input name="school" value={form.school} onChange={handleChange} placeholder="School name" />
+            </label>
+            <label className="field">
+              State
+              <input name="state" value={form.state} onChange={handleChange} placeholder="UT, AZ, HI…" />
+            </label>
+            <label className="field">
+              Grad Year
+              <input name="gradYear" value={form.gradYear} onChange={handleChange} placeholder="2026" />
+            </label>
+            <div className="field">
+              Pipeline Statuses
+              <div className="status-filter">
+                <button
+                  type="button"
+                  className={`btn-ghost status-filter-trigger${statusMenuOpen ? ' active' : ''}`}
+                  onClick={() => setStatusMenuOpen(prev => !prev)}
+                >
+                  Select statuses{form.recruitingStatuses.length > 0 ? ` (${form.recruitingStatuses.length})` : ''}
+                </button>
+                {statusMenuOpen && (
+                  <div className="status-filter-menu">
+                    {RECRUITING_STATUSES.map(status => (
+                      <label key={status.value} className="status-filter-option">
+                        <input
+                          type="checkbox"
+                          checked={form.recruitingStatuses.includes(status.value)}
+                          onChange={e => {
+                            if (e.target.checked) updateFormStatuses([...form.recruitingStatuses, status.value])
+                            else updateFormStatuses(form.recruitingStatuses.filter(item => item !== status.value))
+                          }}
+                        />
+                        <span>{status.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-          {form.recruitingStatuses.includes('Offered') ? (
-            <label className="field">
-              Offered Date *
-              <input
-                type="date"
-                name="offeredDate"
-                value={form.offeredDate}
-                onChange={handleChange}
-                required
-              />
-              {formErrors.offeredDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.offeredDate}</span>}
-            </label>
-          ) : null}
-          {(form.recruitingStatuses.includes('Committed') || form.recruitingStatuses.includes('Signed')) ? (
-            <label className="field">
-              Committed Date *
-              <input
-                type="date"
-                name="committedDate"
-                value={form.committedDate}
-                onChange={handleChange}
-                required
-              />
-              {formErrors.committedDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{formErrors.committedDate}</span>}
-            </label>
-          ) : null}
-          {form.recruitingStatuses.includes('Committed Elsewhere') ? (
-            <>
+            {form.recruitingStatuses.includes('Offered') && (
               <label className="field">
-                Committed School
-                <input
-                  name="committedSchool"
-                  value={form.committedSchool}
-                  onChange={handleChange}
-                  placeholder="School name"
-                />
+                Offered Date *
+                <input type="date" name="offeredDate" value={form.offeredDate} onChange={handleChange} required />
+                {formErrors.offeredDate && <span style={{ color: '#ef4444', fontSize: 12, marginTop: 2 }}>{formErrors.offeredDate}</span>}
               </label>
+            )}
+            {(form.recruitingStatuses.includes('Committed') || form.recruitingStatuses.includes('Signed')) && (
               <label className="field">
                 Committed Date *
-                <input
-                  type="date"
-                  name="committedDate"
-                  value={form.committedDate}
-                  onChange={handleChange}
-                  required
-                />
+                <input type="date" name="committedDate" value={form.committedDate} onChange={handleChange} required />
+                {formErrors.committedDate && <span style={{ color: '#ef4444', fontSize: 12, marginTop: 2 }}>{formErrors.committedDate}</span>}
               </label>
-            </>
-          ) : null}
-          <label className="field">
-            Composite Rating
-            <input
-              type="number"
-              name="compositeRating"
-              value={form.compositeRating}
-              onChange={handleChange}
-              placeholder="0.00"
-              min="0"
-              max="100"
-              step="0.01"
-            />
-          </label>
-          <div style={{ gridColumn: '1 / -1', marginTop: '-6px', fontSize: '12px', color: 'var(--color-text-muted)' }}>
-            Measurables
-          </div>
-          <label className="field">
-            Height (in)
-            <input
-              type="number"
-              name="heightIn"
-              value={form.heightIn}
-              onChange={handleChange}
-              placeholder="e.g. 74"
-              step="0.1"
-            />
-          </label>
-          <label className="field">
-            Weight (lb)
-            <input
-              type="number"
-              name="weightLb"
-              value={form.weightLb}
-              onChange={handleChange}
-              placeholder="e.g. 210"
-              step="0.1"
-            />
-          </label>
-          <label className="field">
-            40 Time
-            <input
-              type="number"
-              name="fortyTime"
-              value={form.fortyTime}
-              onChange={handleChange}
-              placeholder="e.g. 4.55"
-              step="0.01"
-            />
-          </label>
-          <label className="field">
-            Arm Length (in)
-            <input
-              type="number"
-              name="armLengthIn"
-              value={form.armLengthIn}
-              onChange={handleChange}
-              placeholder="e.g. 33.5"
-              step="0.01"
-            />
-          </label>
-          <label className="field">
-            Hand Size (in)
-            <input
-              type="number"
-              name="handSizeIn"
-              value={form.handSizeIn}
-              onChange={handleChange}
-              placeholder="e.g. 9.5"
-              step="0.01"
-            />
-          </label>
-          <label className="checkbox" style={{ gridColumn: '1 / -1' }}>
-            <input
-              type="checkbox"
-              name="isLds"
-              checked={form.isLds || false}
-              onChange={(e) => setForm((prev) => ({ ...prev, isLds: e.target.checked }))}
-            />
-            <span>LDS</span>
-          </label>
-          <label className="field field-wide">
-            Notes
-            <input
-              name="notes"
-              value={form.notes}
-              onChange={handleChange}
-              placeholder="Scouting notes"
-            />
-          </label>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              name="flagged"
-              checked={form.flagged}
-              onChange={handleChange}
-            />
-            Add to Saturday queue
-          </label>
-          <button className="btn-primary" type="submit">
-            <Plus size={16} />
-            Add Player
-          </button>
-          {undersizedModal.open && undersizedModal.pendingAction === 'add' && renderUndersizedAlert()}
-        </form>
-      </section>
-
-      <section className="panel">
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          Players ({filteredPlayers.length})
-          {(() => {
-            const rated = filteredPlayers.filter((p) => p.compositeRating != null && !isNaN(parseFloat(p.compositeRating)))
-            if (rated.length === 0) return null
-            const avg = rated.reduce((sum, p) => sum + parseFloat(p.compositeRating), 0) / rated.length
-            return (
-              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
-                Avg Composite: {avg.toFixed(2)} ({rated.length} rated)
-              </span>
-            )
-          })()}
-        </h3>
-
-        <div className="search-filters">
-          <div className="field-inline">
-            <Search size={16} />
-            <input
-              type="text"
-              placeholder="Search by name or school..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)}>
-            {POSITIONS.map((pos) => (
-              <option key={pos} value={pos}>
-                {pos === 'All' ? 'All Positions' : pos}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            placeholder="State"
-            value={stateFilter}
-            onChange={(e) => setStateFilter(e.target.value)}
-            style={{ width: '80px' }}
-          />
-          <input
-            type="text"
-            placeholder="Grad Year"
-            value={gradYearFilter}
-            onChange={(e) => setGradYearFilter(e.target.value)}
-            style={{ width: '100px' }}
-          />
-          <select value={sideFilter} onChange={(e) => setSideFilter(e.target.value)}>
-            <option value="All">All Sides</option>
-            <option value="Offense">Offense</option>
-            <option value="Defense">Defense</option>
-          </select>
-          <select
-            value={recruitingStatusFilter}
-            onChange={(e) => setRecruitingStatusFilter(e.target.value)}
-          >
-            <option value="">All Statuses</option>
-            {RECRUITING_STATUSES.map((status) => (
-              <option key={status.value} value={status.value}>
-                {status.label}
-              </option>
-            ))}
-          </select>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <input
-              type="number"
-              placeholder="Min Rating"
-              value={compositeRatingMin}
-              onChange={(e) => setCompositeRatingMin(e.target.value)}
-              style={{ width: '90px', padding: 'var(--spacing-sm) var(--spacing-md)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}
-              min="0"
-              max="100"
-              step="0.01"
-            />
-            <span style={{ color: 'var(--color-text-muted)' }}>-</span>
-            <input
-              type="number"
-              placeholder="Max Rating"
-              value={compositeRatingMax}
-              onChange={(e) => setCompositeRatingMax(e.target.value)}
-              style={{ width: '90px', padding: 'var(--spacing-sm) var(--spacing-md)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}
-              min="0"
-              max="100"
-              step="0.01"
-            />
-          </div>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={flaggedOnly}
-              onChange={(e) => setFlaggedOnly(e.target.checked)}
-            />
-            Flagged only
-          </label>
-        </div>
-
-        {duplicateWarning && (
-          <div className="error-message" style={{ marginBottom: '16px' }}>
-            {duplicateWarning}
-          </div>
+            )}
+            {form.recruitingStatuses.includes('Committed Elsewhere') && (
+              <>
+                <label className="field">
+                  Committed School
+                  <input name="committedSchool" value={form.committedSchool} onChange={handleChange} placeholder="School name" />
+                </label>
+                <label className="field">
+                  Committed Date *
+                  <input type="date" name="committedDate" value={form.committedDate} onChange={handleChange} required />
+                </label>
+              </>
+            )}
+            <label className="field">
+              Composite Rating
+              <input type="number" name="compositeRating" value={form.compositeRating} onChange={handleChange} placeholder="0.00" min="0" max="100" step="0.01" />
+            </label>
+            <div style={{ gridColumn: '1 / -1', marginTop: 4, fontSize: 12, color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+              Measurables
+            </div>
+            <label className="field">
+              Height (in)
+              <input type="number" name="heightIn" value={form.heightIn} onChange={handleChange} placeholder="e.g. 74" step="0.1" />
+            </label>
+            <label className="field">
+              Weight (lb)
+              <input type="number" name="weightLb" value={form.weightLb} onChange={handleChange} placeholder="e.g. 210" step="0.1" />
+            </label>
+            <label className="field">
+              40 Time
+              <input type="number" name="fortyTime" value={form.fortyTime} onChange={handleChange} placeholder="e.g. 4.55" step="0.01" />
+            </label>
+            <label className="field">
+              Arm Length (in)
+              <input type="number" name="armLengthIn" value={form.armLengthIn} onChange={handleChange} placeholder="e.g. 33.5" step="0.01" />
+            </label>
+            <label className="field">
+              Hand Size (in)
+              <input type="number" name="handSizeIn" value={form.handSizeIn} onChange={handleChange} placeholder="e.g. 9.5" step="0.01" />
+            </label>
+            <label className="checkbox" style={{ gridColumn: '1 / -1' }}>
+              <input type="checkbox" name="isLds" checked={form.isLds || false} onChange={e => setForm(prev => ({ ...prev, isLds: e.target.checked }))} />
+              <span>LDS</span>
+            </label>
+            <label className="field field-wide">
+              Notes
+              <input name="notes" value={form.notes} onChange={handleChange} placeholder="Scouting notes" />
+            </label>
+            <label className="checkbox">
+              <input type="checkbox" name="flagged" checked={form.flagged} onChange={handleChange} />
+              Add to Saturday queue
+            </label>
+            <button className="btn-primary" type="submit">
+              <Plus size={16} /> Add Player
+            </button>
+            {undersizedModal.open && undersizedModal.pendingAction === 'add' && renderUndersizedAlert()}
+          </form>
         )}
-        {filteredPlayers.length === 0 ? (
-          players.length === 0
-            ? <EmptyState icon={UserPlus} title="No players yet" subtitle="Add one to start your watchlist." />
-            : <EmptyState icon={SearchX} title="No players match your filters" subtitle="Try adjusting your search or filters." />
-        ) : (
-          <>
-            <ul className="list">
-              {paginatedPlayers.map((player) => {
+      </div>
+
+      {duplicateWarning && (
+        <div className="error-message" style={{ margin: '0 0 14px' }}>{duplicateWarning}</div>
+      )}
+
+      {/* ── PLAYER LIST ─────────────────────────────────────────── */}
+      {filteredPlayers.length === 0 ? (
+        players.length === 0
+          ? <EmptyState icon={UserPlus} title="No players yet" subtitle="Add one to start your watchlist." />
+          : <EmptyState icon={SearchX} title="No players match your filters" subtitle="Try adjusting your search or filters." />
+      ) : (
+        <>
+          <ul className="pb-list">
+            {paginatedPlayers.map(player => {
               const playerAssignments = getPlayerAssignments(player.id)
+              const primaryStatus = (player.recruitingStatuses || ['Watching'])[0]
+              const accentClass = getAccentClass(primaryStatus)
+              const hasRating = player.compositeRating != null && !isNaN(parseFloat(player.compositeRating))
+
               return (
-                <li key={player.id} className="list-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
+                <li key={player.id} className="pb-card">
                   {editingPlayerId === player.id ? (
-                    // Edit Mode
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <PlayerAvatar name={player.name} url={player.profilePictureUrl} size={56} />
-                        <input
-                          ref={photoInputRef}
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          style={{ display: 'none' }}
-                          onChange={(e) => handlePhotoUpload(player.id, e.target.files[0])}
-                        />
-                        <button
-                          type="button"
-                          className="btn-ghost"
-                          onClick={() => photoInputRef.current?.click()}
-                          disabled={photoUploading}
-                        >
-                          <Camera size={16} />
-                          {photoUploading ? 'Uploading...' : player.profilePictureUrl ? 'Change Photo' : 'Add Photo'}
+                    <div className="pb-card-edit">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                        <PlayerAvatar name={player.name} url={player.profilePictureUrl} size={52} />
+                        <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp"
+                          style={{ display: 'none' }} onChange={e => handlePhotoUpload(player.id, e.target.files[0])} />
+                        <button type="button" className="btn-ghost" onClick={() => photoInputRef.current?.click()} disabled={photoUploading}>
+                          <Camera size={16} /> {photoUploading ? 'Uploading…' : player.profilePictureUrl ? 'Change Photo' : 'Add Photo'}
                         </button>
                         {player.profilePictureUrl && (
-                          <button
-                            type="button"
-                            className="btn-ghost danger"
-                            onClick={() => handleDeletePhoto(player.id)}
-                          >
-                            <Trash2 size={14} />
-                            Remove Photo
+                          <button type="button" className="btn-ghost danger" onClick={() => handleDeletePhoto(player.id)}>
+                            <Trash2 size={14} /> Remove Photo
                           </button>
                         )}
                       </div>
                       <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-                        <label className="field">
-                          Name
+                        <label className="field">Name
                           <input name="name" value={editForm.name} onChange={handleEditChange} />
-                          {editErrors.name && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{editErrors.name}</span>}
+                          {editErrors.name && <span style={{ color: '#ef4444', fontSize: 12 }}>{editErrors.name}</span>}
                         </label>
-                        <label className="field">
-                          Position
-                          <input name="position" value={editForm.position} onChange={handleEditChange} />
-                        </label>
-                        <label className="field">
-                          Offense Pos
-                          <input name="offensePosition" value={editForm.offensePosition} onChange={handleEditChange} />
-                        </label>
-                        <label className="field">
-                          Defense Pos
-                          <input name="defensePosition" value={editForm.defensePosition} onChange={handleEditChange} />
-                        </label>
-                        <label className="field">
-                          School
-                          <input name="school" value={editForm.school} onChange={handleEditChange} />
-                        </label>
-                        <label className="field">
-                          State
-                          <input name="state" value={editForm.state} onChange={handleEditChange} />
-                        </label>
-                        <label className="field">
-                          Grad Year
-                          <input name="gradYear" value={editForm.gradYear} onChange={handleEditChange} />
-                        </label>
-                        <div className="field">
-                          Pipeline Statuses
+                        <label className="field">Position<input name="position" value={editForm.position} onChange={handleEditChange} /></label>
+                        <label className="field">Offense Pos<input name="offensePosition" value={editForm.offensePosition} onChange={handleEditChange} /></label>
+                        <label className="field">Defense Pos<input name="defensePosition" value={editForm.defensePosition} onChange={handleEditChange} /></label>
+                        <label className="field">School<input name="school" value={editForm.school} onChange={handleEditChange} /></label>
+                        <label className="field">State<input name="state" value={editForm.state} onChange={handleEditChange} /></label>
+                        <label className="field">Grad Year<input name="gradYear" value={editForm.gradYear} onChange={handleEditChange} /></label>
+                        <div className="field">Pipeline Statuses
                           <div className="status-filter">
-                            <button
-                              type="button"
-                              className={`btn-ghost status-filter-trigger${editStatusMenuOpenId === player.id ? ' active' : ''}`}
-                              onClick={() =>
-                                setEditStatusMenuOpenId((prev) => (prev === player.id ? null : player.id))
-                              }
-                            >
-                              Select statuses
-                              {editForm.recruitingStatuses?.length ? ` (${editForm.recruitingStatuses.length})` : ''}
+                            <button type="button" className={`btn-ghost status-filter-trigger${editStatusMenuOpenId === player.id ? ' active' : ''}`}
+                              onClick={() => setEditStatusMenuOpenId(prev => prev === player.id ? null : player.id)}>
+                              Select statuses{editForm.recruitingStatuses?.length ? ` (${editForm.recruitingStatuses.length})` : ''}
                             </button>
-                            {editStatusMenuOpenId === player.id ? (
+                            {editStatusMenuOpenId === player.id && (
                               <div className="status-filter-menu">
-                                {RECRUITING_STATUSES.map((status) => (
+                                {RECRUITING_STATUSES.map(status => (
                                   <label key={status.value} className="status-filter-option">
-                                    <input
-                                      type="checkbox"
-                                      checked={(editForm.recruitingStatuses || []).includes(status.value)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          updateEditStatuses([...(editForm.recruitingStatuses || []), status.value])
-                                        } else {
-                                          updateEditStatuses(
-                                            (editForm.recruitingStatuses || []).filter((item) => item !== status.value)
-                                          )
-                                        }
-                                      }}
-                                    />
+                                    <input type="checkbox" checked={(editForm.recruitingStatuses || []).includes(status.value)}
+                                      onChange={e => {
+                                        if (e.target.checked) updateEditStatuses([...(editForm.recruitingStatuses || []), status.value])
+                                        else updateEditStatuses((editForm.recruitingStatuses || []).filter(item => item !== status.value))
+                                      }} />
                                     <span>{status.label}</span>
                                   </label>
                                 ))}
                               </div>
-                            ) : null}
+                            )}
                           </div>
                         </div>
-                        {(editForm.recruitingStatuses || []).includes('Offered') ? (
-                          <label className="field">
-                            Offered Date *
-                            <input
-                              type="date"
-                              name="offeredDate"
-                              value={editForm.offeredDate || ''}
-                              onChange={handleEditChange}
-                              required
-                            />
-                            {editErrors.offeredDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{editErrors.offeredDate}</span>}
+                        {(editForm.recruitingStatuses || []).includes('Offered') && (
+                          <label className="field">Offered Date *
+                            <input type="date" name="offeredDate" value={editForm.offeredDate || ''} onChange={handleEditChange} required />
+                            {editErrors.offeredDate && <span style={{ color: '#ef4444', fontSize: 12 }}>{editErrors.offeredDate}</span>}
                           </label>
-                        ) : null}
-                        {((editForm.recruitingStatuses || []).includes('Committed') || (editForm.recruitingStatuses || []).includes('Signed')) ? (
-                          <label className="field">
-                            Committed Date *
-                            <input
-                              type="date"
-                              name="committedDate"
-                              value={editForm.committedDate || ''}
-                              onChange={handleEditChange}
-                              required
-                            />
-                            {editErrors.committedDate && <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '12px', marginTop: '2px' }}>{editErrors.committedDate}</span>}
+                        )}
+                        {((editForm.recruitingStatuses || []).includes('Committed') || (editForm.recruitingStatuses || []).includes('Signed')) && (
+                          <label className="field">Committed Date *
+                            <input type="date" name="committedDate" value={editForm.committedDate || ''} onChange={handleEditChange} required />
+                            {editErrors.committedDate && <span style={{ color: '#ef4444', fontSize: 12 }}>{editErrors.committedDate}</span>}
                           </label>
-                        ) : null}
-                        {(editForm.recruitingStatuses || []).includes('Committed Elsewhere') ? (
+                        )}
+                        {(editForm.recruitingStatuses || []).includes('Committed Elsewhere') && (
                           <>
-                            <label className="field">
-                              Committed School
-                              <input name="committedSchool" value={editForm.committedSchool || ''} onChange={handleEditChange} placeholder="School name" />
-                            </label>
-                            <label className="field">
-                              Committed Date *
-                              <input type="date" name="committedDate" value={editForm.committedDate || ''} onChange={handleEditChange} required />
-                            </label>
+                            <label className="field">Committed School<input name="committedSchool" value={editForm.committedSchool || ''} onChange={handleEditChange} placeholder="School name" /></label>
+                            <label className="field">Committed Date *<input type="date" name="committedDate" value={editForm.committedDate || ''} onChange={handleEditChange} required /></label>
                           </>
-                        ) : null}
-                        <label className="field">
-                          Composite Rating
-                          <input
-                            type="number"
-                            name="compositeRating"
-                            value={editForm.compositeRating || ''}
-                            onChange={handleEditChange}
-                            placeholder="0.00"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                          />
+                        )}
+                        <label className="field">Composite Rating
+                          <input type="number" name="compositeRating" value={editForm.compositeRating || ''} onChange={handleEditChange} placeholder="0.00" min="0" max="100" step="0.01" />
                         </label>
-                        <div style={{ gridColumn: '1 / -1', marginTop: '-6px', fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                          Measurables
-                        </div>
-                        <label className="field">
-                          Height (in)
-                          <input
-                            type="number"
-                            name="heightIn"
-                            value={editForm.heightIn ?? ''}
-                            onChange={handleEditChange}
-                            placeholder="e.g. 74"
-                            step="0.1"
-                          />
-                        </label>
-                        <label className="field">
-                          Weight (lb)
-                          <input
-                            type="number"
-                            name="weightLb"
-                            value={editForm.weightLb ?? ''}
-                            onChange={handleEditChange}
-                            placeholder="e.g. 210"
-                            step="0.1"
-                          />
-                        </label>
-                        <label className="field">
-                          40 Time
-                          <input
-                            type="number"
-                            name="fortyTime"
-                            value={editForm.fortyTime ?? ''}
-                            onChange={handleEditChange}
-                            placeholder="e.g. 4.55"
-                            step="0.01"
-                          />
-                        </label>
-                        <label className="field">
-                          Arm Length (in)
-                          <input
-                            type="number"
-                            name="armLengthIn"
-                            value={editForm.armLengthIn ?? ''}
-                            onChange={handleEditChange}
-                            placeholder="e.g. 33.5"
-                            step="0.01"
-                          />
-                        </label>
-                        <label className="field">
-                          Hand Size (in)
-                          <input
-                            type="number"
-                            name="handSizeIn"
-                            value={editForm.handSizeIn ?? ''}
-                            onChange={handleEditChange}
-                            placeholder="e.g. 9.5"
-                            step="0.01"
-                          />
-                        </label>
+                        <div style={{ gridColumn: '1 / -1', fontSize: 12, color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Measurables</div>
+                        <label className="field">Height (in)<input type="number" name="heightIn" value={editForm.heightIn ?? ''} onChange={handleEditChange} placeholder="e.g. 74" step="0.1" /></label>
+                        <label className="field">Weight (lb)<input type="number" name="weightLb" value={editForm.weightLb ?? ''} onChange={handleEditChange} placeholder="e.g. 210" step="0.1" /></label>
+                        <label className="field">40 Time<input type="number" name="fortyTime" value={editForm.fortyTime ?? ''} onChange={handleEditChange} placeholder="e.g. 4.55" step="0.01" /></label>
+                        <label className="field">Arm Length (in)<input type="number" name="armLengthIn" value={editForm.armLengthIn ?? ''} onChange={handleEditChange} placeholder="e.g. 33.5" step="0.01" /></label>
+                        <label className="field">Hand Size (in)<input type="number" name="handSizeIn" value={editForm.handSizeIn ?? ''} onChange={handleEditChange} placeholder="e.g. 9.5" step="0.01" /></label>
                         <label className="checkbox" style={{ gridColumn: '1 / -1' }}>
-                          <input
-                            type="checkbox"
-                            name="isLds"
-                            checked={editForm.isLds || false}
-                            onChange={(e) => setEditForm((prev) => ({ ...prev, isLds: e.target.checked }))}
-                          />
+                          <input type="checkbox" name="isLds" checked={editForm.isLds || false} onChange={e => setEditForm(prev => ({ ...prev, isLds: e.target.checked }))} />
                           <span>LDS</span>
                         </label>
-                        <label className="field" style={{ gridColumn: '1 / -1' }}>
-                          Notes
-                          <input name="notes" value={editForm.notes} onChange={handleEditChange} />
-                        </label>
+                        <label className="field" style={{ gridColumn: '1 / -1' }}>Notes<input name="notes" value={editForm.notes} onChange={handleEditChange} /></label>
                       </div>
-                      <div className="row-actions">
-                        <button className="btn-primary" onClick={saveEditing}>
-                          <Check size={16} />
-                          Save
-                        </button>
-                        <button className="btn-secondary" onClick={cancelEditing}>
-                          <X size={16} />
-                          Cancel
-                        </button>
+                      <div className="row-actions" style={{ marginTop: 12 }}>
+                        <button className="btn-primary" onClick={saveEditing}><Check size={16} /> Save</button>
+                        <button className="btn-secondary" onClick={cancelEditing}><X size={16} /> Cancel</button>
                       </div>
                       {undersizedModal.open &&
                         undersizedModal.pendingAction === 'edit' &&
                         undersizedModal.pendingPlayer &&
-                        String(undersizedModal.pendingPlayer.id || editingPlayerId) ===
-                          String(player.id) &&
+                        String(undersizedModal.pendingPlayer.id || editingPlayerId) === String(player.id) &&
                         renderUndersizedAlert()}
                     </div>
                   ) : (
-                    // View Mode
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <PlayerAvatar name={player.name} url={player.profilePictureUrl} size={40} />
-                        <div>
-                        <strong style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <Link to={`/player/${player.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{player.name}</Link>
-                          {player.compositeRating != null && !isNaN(parseFloat(player.compositeRating)) && (
-                            <span
-                              style={{
-                                fontSize: '12px',
-                                padding: '4px 10px',
-                                borderRadius: '12px',
-                                background: 'var(--color-primary)',
-                                color: 'white',
-                                fontWeight: '700',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                              }}
-                            >
+                    <div className="pb-card-view">
+                      <div className={`pb-card-accent ${accentClass}`} />
+                      <div className="pb-card-avatar">
+                        <PlayerAvatar name={player.name} url={player.profilePictureUrl} size={42} />
+                      </div>
+                      <div className="pb-card-body">
+                        <div className="pb-card-name-row">
+                          <Link to={`/player/${player.id}`} className="pb-card-name">{player.name}</Link>
+                          {hasRating && (
+                            <span className={`pb-card-rating ${getRatingClass(player.compositeRating)}`}>
                               {parseFloat(player.compositeRating).toFixed(2)}
                             </span>
                           )}
-                          {player.isLds && (
-                            <span
-                              style={{
-                                fontSize: '11px',
-                                padding: '3px 8px',
-                                borderRadius: '8px',
-                                background: '#fef3c7',
-                                color: '#92400e',
-                                fontWeight: '600',
-                                border: '1px solid #fbbf24',
-                              }}
-                            >
-                              LDS
-                            </span>
-                          )}
-                          {(player.recruitingStatuses || ['Watching']).map((status) => (
-                            <span key={status} className={`status-badge ${getStatusColor(status)}`}>
-                              {status}
-                            </span>
+                          {player.isLds && <span className="pb-badge-lds">LDS</span>}
+                          {player.cutUpCompleted && <span className="pb-badge-cutup">Cut Up ✓</span>}
+                          {player.flagged && <span className="pb-badge-flag" title="Flagged">🚩</span>}
+                          {(player.recruitingStatuses || ['Watching']).map(status => (
+                            <span key={status} className={`status-badge ${getStatusColor(status)}`}>{status}</span>
                           ))}
-                          {player.cutUpCompleted && (
-                            <span style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '4px', background: 'var(--color-success)', color: 'white' }}>
-                              Cut Up Done
-                            </span>
-                          )}
                           {playerAssignments.length > 0 && (
-                            <span className="assigned-scouts" title={`Assigned to: ${playerAssignments.map((a) => a.scout_name || a.scout_email).join(', ')}`}>
-                              <Users size={14} />
-                              {playerAssignments.length}
+                            <span className="assigned-scouts" title={`Assigned: ${playerAssignments.map(a => a.scout_name || a.scout_email).join(', ')}`}>
+                              <Users size={12} /> {playerAssignments.length}
                             </span>
                           )}
-                        </strong>
-                        {(player.recruitingStatuses || []).includes('Committed Elsewhere') && player.committedSchool ? (
-                          <span className="status-detail">
-                            Committed to {player.committedSchool}
-                            {player.committedDate ? ` on ${String(player.committedDate).split('T')[0]}` : ''}
-                          </span>
-                        ) : null}
-                        <span>
-                          {getPrimaryPositionDisplay(player)}
-                          {player.offensePosition ? ` · O: ${player.offensePosition}` : ''}
-                          {player.defensePosition ? ` · D: ${player.defensePosition}` : ''} ·{' '}
-                          {player.school || 'School TBD'}{player.state ? ` (${player.state})` : ''} · {player.gradYear || 'Grad year TBD'}
-                        </span>
                         </div>
+                        <div className="pb-card-meta">
+                          <strong>{getPrimaryPositionDisplay(player)}</strong>
+                          {player.offensePosition && ` · O: ${player.offensePosition}`}
+                          {player.defensePosition && ` · D: ${player.defensePosition}`}
+                          {' · '}{player.school || 'School TBD'}
+                          {player.state && ` (${player.state})`}
+                          {' · '}{player.gradYear || 'Grad TBD'}
+                          {player.heightIn && ` · ${Math.floor(player.heightIn / 12)}'${Math.round(player.heightIn % 12)}"`}
+                          {player.weightLb && ` · ${Math.round(player.weightLb)} lb`}
+                          {player.fortyTime && ` · ${player.fortyTime}s`}
+                        </div>
+                        {(player.recruitingStatuses || []).includes('Committed Elsewhere') && player.committedSchool && (
+                          <div className="pb-card-meta" style={{ color: '#F97316' }}>
+                            Committed to {player.committedSchool}{player.committedDate ? ` · ${String(player.committedDate).split('T')[0]}` : ''}
+                          </div>
+                        )}
+                        {player.notes && (
+                          <div className="pb-card-intel">
+                            {player.notes}
+                            {Array.isArray(player.undersizedTraits) && player.undersizedTraits.length > 0 && (
+                              <> · <span className="pb-intel-tag pb-intel-risk">Undersized</span>{player.undersizedTraits.join(', ')}</>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <div className="row-actions">
-                        <label
-                          className="btn-ghost"
-                          title="Cut Up Completed"
-                          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-text-secondary)' }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={player.cutUpCompleted || false}
-                            onChange={() => toggleCutUpCompleted(player.id)}
-                            style={{ width: '16px', height: '16px', accentColor: 'var(--color-text-secondary)' }}
-                          />
+                      <div className="pb-card-actions">
+                        <label className="pb-cutup-label">
+                          <input type="checkbox" checked={player.cutUpCompleted || false} onChange={() => toggleCutUpCompleted(player.id)} />
                           <span>Cut Up</span>
                         </label>
-                        <button className="btn-ghost" onClick={() => startEditing(player)}>
-                          <Pencil size={16} />
-                          Edit
+                        <button className="pb-action-btn" onClick={() => toggleFlagged(player.id)}>
+                          <Flag size={12} /> {player.flagged ? 'Unflag' : 'Flag'}
                         </button>
-                        <Link className="btn-ghost" to={`/player/${player.id}/stats`}>
-                          <BarChart3 size={16} />
-                          Stats
+                        <button className="pb-action-btn" onClick={() => startEditing(player)}>
+                          <Pencil size={12} /> Edit
+                        </button>
+                        <Link className="pb-action-btn" to={`/player/${player.id}/stats`}>
+                          <BarChart3 size={12} /> Stats
                         </Link>
-                        <button className="btn-ghost" onClick={() => toggleFlagged(player.id)}>
-                          <Flag size={16} />
-                          {player.flagged ? 'Flagged' : 'Unflagged'}
-                        </button>
-                        <button className="btn-ghost danger" onClick={() => removePlayer(player.id)}>
-                          <Trash2 size={16} />
-                          Remove
+                        <button className="pb-action-btn danger" onClick={() => removePlayer(player.id)}>
+                          <Trash2 size={12} /> Remove
                         </button>
                       </div>
                     </div>
@@ -1545,32 +1267,18 @@ function PlayerManagement() {
             })}
           </ul>
           {totalPages > 1 && (
-            <div className="pagination">
-              <button
-                className="btn-ghost"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft size={16} />
-                Previous
+            <div className="pb-pagination">
+              <button className="pb-page-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                <ChevronLeft size={14} /> Prev
               </button>
-              <span className="pagination-info">
-                Page {currentPage} of {totalPages} ({filteredPlayers.length} total)
-              </span>
-              <button
-                className="btn-ghost"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Next
-                <ChevronRight size={16} />
+              <span className="pb-page-info">{currentPage} / {totalPages} · {filteredPlayers.length} total</span>
+              <button className="pb-page-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                Next <ChevronRight size={14} />
               </button>
             </div>
           )}
-          </>
-        )}
-      </section>
-
+        </>
+      )}
     </div>
   )
 }

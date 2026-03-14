@@ -35,3 +35,8 @@ server/uploads/
 
 # Claude Code
 .claude/
+
+# Firebase
+.firebase/
+functions/node_modules/
+functions/lib/

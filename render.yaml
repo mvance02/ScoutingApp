@@ -1,0 +1,19 @@
+# Render Blueprint – backend only (server folder)
+# Docs: https://docs.render.com/blueprint-spec
+#
+# To use: Push this repo to GitHub, then in Render:
+#   Dashboard → New → Blueprint → Connect repo → Select this repo
+#   Render will create the web service. Then add env vars (see DEPLOY.md).
+
+services:
+  - type: web
+    name: scouting-app-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    # Add these in Render Dashboard → Service → Environment (never commit real values):
+    # - NODE_ENV = production
+    # - DATABASE_URL = your Postgres connection string
+    # - JWT_SECRET = long random string (e.g. openssl rand -hex 32)
+    # - FRONTEND_URL = https://recruiting-490120.web.app
